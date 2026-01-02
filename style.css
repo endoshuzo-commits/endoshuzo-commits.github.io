@@ -1,0 +1,43 @@
+:root{
+  --bg:#0b0d10;
+  --fg:#e8e8e8;
+  --muted:#a9b0bb;
+  --line:#2a2f38;
+  --link:#c7d2ff;
+}
+
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  line-height:1.8;
+}
+
+main{
+  max-width: 880px;
+  margin: 72px auto;
+  padding: 0 24px;
+}
+
+h1{
+  font-size: 42px;
+  letter-spacing: 0.02em;
+  margin: 0 0 18px;
+}
+
+p{ color:var(--muted); margin: 0 0 18px; }
+
+hr{
+  border:0;
+  border-top:1px solid var(--line);
+  margin: 28px 0;
+}
+
+a{
+  color:var(--link);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(199,210,255,.35);
+}
+a:hover{ border-bottom-color: rgba(199,210,255,.9); }
