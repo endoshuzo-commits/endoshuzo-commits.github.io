@@ -162,20 +162,19 @@ figure img{
   }
 }
 /* PC表示時：トップページ Works の動画・サムネを少し小さく */
+/* PC表示時：3D Works（個別ページ）の動画サイズを抑える */
 @media (min-width: 768px){
-  .works-grid video,
-  .works-grid img{
+  .works-page .card video{
     width: 85%;
     margin-left: auto;
     margin-right: auto;
-    display: block;
   }
 }
 
 @media (min-width: 1024px){
-  .works-grid video,
-  .works-grid img{
+  .works-page .card video{
     width: 75%;
   }
 }
+
 
