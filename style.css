@@ -143,17 +143,20 @@ figure img{
   gap: 24px;
 }
 
-/* PC表示 */
-@media (min-width: 768px) {
-  .works-grid {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
+.card video{
+  display: block;
 }
+
 @media (min-width: 768px){
-  .card video{
+  .works-grid video{
     width: 85%;
     margin-left: auto;
     margin-right: auto;
+  }
+}
+
+@media (min-width: 1024px){
+  .works-grid video{
+    width: 75%;
   }
 }
