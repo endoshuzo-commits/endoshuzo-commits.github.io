@@ -193,3 +193,11 @@ figure img{
     width: 75%;
   }
 }
+/* PC表示時：Works を横並びにする */
+@media (min-width: 768px){
+  .works-grid{
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
