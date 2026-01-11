@@ -236,4 +236,45 @@ figure img{
   font-size: 13px;
   margin: 8px 0 0;
 }
+/* =========================
+   3D Models page: use wider canvas on PC
+   ========================= */
+.works-page main{
+  max-width: 1200px; /* まず広げる。好みで 1280 / 1360 でもOK */
+}
+
+/* さらに横幅があるPCでは余裕を増やす */
+@media (min-width: 1280px){
+  .works-page main{
+    max-width: 1400px;
+  }
+}
+/* =========================
+   3D Models page: 2-column layout per character (PC only)
+   ========================= */
+.works-page .media-grid{
+  display: block; /* スマホは縦 */
+}
+
+/* PCだけ左右に分ける */
+@media (min-width: 900px){
+  .works-page .media-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 左=360 / 右=MMD */
+    gap: 18px;
+    align-items: start;
+    margin-top: 12px;
+  }
+
+  /* PCのときは動画をカラム幅いっぱい使う（統一） */
+  .works-page .media-grid video.v-media{
+    max-width: none; /* 560px制限を外して、2カラム内で100%にする */
+    width: 100%;
+  }
+
+  /* usage の上線を「右カラム内」に閉じ込める */
+  .works-page .media-grid .usage{
+    margin-top: 0;
+  }
+}
 
