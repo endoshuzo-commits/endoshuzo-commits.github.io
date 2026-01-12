@@ -196,7 +196,7 @@ figure img{
 /* PC表示時：Works を横並びにする */
 @media (min-width: 768px){
   .works-grid{
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 3fr 1fr;
     align-items: start;
   }
 }
@@ -254,6 +254,20 @@ figure img{
    ========================= */
 .works-page .media-grid{
   display: block; /* スマホは縦 */
+}
+/* =========================
+   Home page: use wider canvas on PC
+   ========================= */
+@media (min-width: 900px){
+  .home-page main{
+    max-width: 1200px;
+  }
+}
+
+@media (min-width: 1280px){
+  .home-page main{
+    max-width: 1400px;
+  }
 }
 
 /* PCだけ左右に分ける */
