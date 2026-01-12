@@ -303,10 +303,3 @@ figure img{
     grid-template-columns: 1fr;
   }
 }
-
-/* Home: thumbnails keep similar height */
-.home-page .works-grid img,
-.home-page .works-grid video{
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
