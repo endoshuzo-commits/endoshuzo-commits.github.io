@@ -185,3 +185,10 @@ img{
     max-width: 1400px;
   }
 }
+/* ---------- log images ---------- */
+
+.logs-page figure img,
+body:not(.home-page) figure img{
+  max-width: 640px;
+  margin: 0 auto;
+}
