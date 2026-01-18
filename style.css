@@ -187,9 +187,8 @@ img{
 }
 /* ---------- log images ---------- */
 
-.logs-page figure img,
 body:not(.home-page) figure img{
-  max-width: 480px;
+  width: min(100%, 720px);
   margin: 0 auto;
 }
 /* ---------- mobile image tuning (global) ---------- */
