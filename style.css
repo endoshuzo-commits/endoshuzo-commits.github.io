@@ -201,6 +201,7 @@ body:not(.home-page) figure img{
 
   /* 縦長スクショの「壁」対策 */
   main figure img{
+    body:not(.log-page) main figure img{
     max-height: 68vh;
     object-fit: contain;
   }
