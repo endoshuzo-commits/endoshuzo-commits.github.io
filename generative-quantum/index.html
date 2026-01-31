@@ -412,7 +412,7 @@
   ctx.lineWidth = Math.max(1.2, Math.min(W, H) * 0.0018);
 
   const rings = Math.floor(Math.min(W, H) / 10);
-  for (let i = 0; i < rings; i++) {
+  for (let i = 1; i < rings; i++) {
     const r = i * 6 + (rnd() - 0.5) * 2;
 
     // i が増えるほど中心から遠いので薄くする
