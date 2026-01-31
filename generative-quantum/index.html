@@ -276,9 +276,9 @@
   }
 
   function updateActive() {
-    [...thumbGrid.children].forEach((el, idx) => {
-      el.dataset.active = (idx === selectedIndex) ? "true" : "false";
-    });
+    Array.from(thumbGrid.children).forEach((el, idx) => {
+  el.dataset.active = (idx === selectedIndex) ? "true" : "false";
+});
   }
 
   // ---------------------------
