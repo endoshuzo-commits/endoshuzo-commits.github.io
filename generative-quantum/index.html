@@ -453,7 +453,7 @@
     const rnd = mulberry32(s.seed);
     ctx.globalCompositeOperation = "lighter";
 
-    const n = Math.floor((W*H) / 25000);
+    const n = Math.max(18, Math.floor((W*H) / 25000));
     for (let i = 0; i < n; i++) {
       const x = rnd()*W, y = rnd()*H;
       const size = 30 + rnd()*180;
