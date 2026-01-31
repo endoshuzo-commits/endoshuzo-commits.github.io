@@ -201,6 +201,7 @@
   });
 
   function observeNow() {
+    clearInterval(unobservedTimer);
     observed = true;
     status.textContent = "observed";
     overlay.innerHTML = `確定：${WORKS[selectedIndex].title}<br>（再生成するにはリロード）`;
