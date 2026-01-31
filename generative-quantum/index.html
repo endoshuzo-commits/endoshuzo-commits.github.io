@@ -17,6 +17,7 @@
     body{
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
                    "Noto Sans JP","Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      line-height:1.6;
     }
     a{color:var(--link);text-decoration:none;}
     a:hover{text-decoration:underline;}
@@ -25,82 +26,81 @@
       padding:8px 10px;border-radius:10px;cursor:pointer;
     }
     button:hover{border-color:#3a4150;}
-    .wrap{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr;}
 
+    /* Layout */
+    .wrap{min-height:100%;display:flex;flex-direction:column;}
     header{
+      position:sticky;top:0;z-index:10;
       display:flex;align-items:center;justify-content:space-between;
       padding:14px 18px;border-bottom:1px solid var(--line);
       background:rgba(11,13,16,.72);backdrop-filter: blur(10px);
     }
-    header .left{display:flex;gap:12px;align-items:baseline;}
+    header .left{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;}
     header .title{font-size:14px;letter-spacing:.02em;}
     header .desc{font-size:12px;color:var(--muted);}
     header .right{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);}
 
-    /* レイアウト：左ギャラリー / 右プレビュー */
-    .main{
-      display:grid;
-      grid-template-columns: 320px 1fr;
-      height:100%;
-      min-height:0;
-    }
-    @media (max-width: 900px){
-      .main{grid-template-columns: 1fr; grid-template-rows: auto 1fr;}
+    main{
+      max-width:1100px;
+      margin: 28px auto 64px;
+      padding: 0 18px;
+      width:100%;
     }
 
-    /* Gallery */
-    .gallery{
-      border-right:1px solid var(--line);
-      padding:16px;
-      overflow:auto;
-      background:rgba(17,20,26,.25);
-    }
-    @media (max-width: 900px){
-      .gallery{border-right:none;border-bottom:1px solid var(--line);}
-    }
-    .g-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-    .g-head .k{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
     .grid{
       display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap:22px;
     }
-    .thumb-card{
-      display:grid;
-      grid-template-columns: 96px 1fr;
-      gap:10px;
-      align-items:center;
-      padding:10px;
+
+    .card{
       border:1px solid var(--line);
-      border-radius:14px;
-      background:rgba(17,20,26,.55);
+      border-radius:18px;
+      background: rgba(17,20,26,.55);
+      overflow:hidden;
       cursor:pointer;
       user-select:none;
+      transition: border-color .15s ease, transform .15s ease;
     }
-    .thumb-card:hover{border-color:#3a4150;}
-    .thumb-card[data-active="true"]{
-      border-color: rgba(199,210,255,.7);
-      box-shadow: 0 0 0 1px rgba(199,210,255,.2) inset;
+    .card:hover{
+      border-color:#3a4150;
+      transform: translateY(-1px);
     }
-    .thumb{
-      width:96px;height:96px;border-radius:12px;display:block;
-      background:#0a0c10;border:1px solid rgba(255,255,255,.06);
-    }
-    .t-title{font-size:13px;margin:0 0 4px;}
-    .t-desc{font-size:12px;color:var(--muted);margin:0;line-height:1.5;}
 
-    /* Preview */
-    .preview{
-      position:relative;
-      min-height:0;
+    .thumb{
+      width:100%;
+      aspect-ratio: 16 / 10;
+      display:block;
+      background:#0a0c10;
     }
-    .preview canvas{display:block;width:100%;height:100%;}
-    .overlay{
-      position:absolute;left:18px;bottom:14px;
-      color:rgba(255,255,255,.55);
-      font-size:12px;line-height:1.4;
-      pointer-events:none;user-select:none;
-      text-shadow: 0 1px 12px rgba(0,0,0,.6);
+
+    .meta{
+      padding:14px 14px 16px;
+      border-top:1px solid rgba(255,255,255,.06);
+    }
+    .name{
+      font-size:16px;
+      margin:0 0 6px;
+      letter-spacing:.01em;
+    }
+    .cap{
+      font-size:13px;
+      margin:0;
+      color:var(--muted);
+    }
+
+    .hint{
+      margin:0 0 18px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .kbd{
+      display:inline-block;
+      border:1px solid rgba(255,255,255,.16);
+      border-bottom-color: rgba(255,255,255,.10);
+      padding:2px 8px;border-radius:999px;
+      font-size:12px;color:rgba(255,255,255,.75);
+      background: rgba(0,0,0,.15);
     }
   </style>
 </head>
@@ -110,252 +110,142 @@
     <header>
       <div class="left">
         <div class="title">Generative Gallery</div>
-        <div class="desc">作品を選び、生成ボタンで“観測＝確定”</div>
+        <div class="desc">サムネは“可能性”。クリックで個室が開き、そこで観測して確定する。</div>
       </div>
       <div class="right">
         <a href="../">← Still Latency</a>
-        <button id="generate" title="選択中の作品を確定生成">生成（観測）</button>
-        <button id="regen" title="ページをリロードして全て未観測へ">別世界（リロード）</button>
+        <button id="regen" title="展示室をリロードしてサムネを描き直す">別世界（リロード）</button>
       </div>
     </header>
 
-    <div class="main">
-      <aside class="gallery">
-        <div class="g-head">
-          <div class="k">Works</div>
-          <div class="k" id="status">unobserved</div>
-        </div>
-        <div class="grid" id="thumbGrid"></div>
-      </aside>
-
-      <section class="preview">
-        <canvas id="mainCanvas"></canvas>
-        <div class="overlay" id="overlay">
-          未観測：まだ何も確定していない。<br>
-          左の作品を選んで「生成（観測）」を押す。
-        </div>
-      </section>
-    </div>
+    <main>
+      <p class="hint">
+        <span class="kbd">クリック</span> または <span class="kbd">Enter</span> で個室を開く（新しいタブ）。
+      </p>
+      <div class="grid" id="grid"></div>
+    </main>
   </div>
 
 <script>
 (() => {
-  // =========================================================
-  // コンセプト：
-  // - サムネは“見本”（軽量に即時描画）
-  // - 本番は「生成（観測）」ボタンで一度だけ確定
-  // - ページを閉じたら全て消える（永続化しない）
-  // =========================================================
-
-  const mainCanvas = document.getElementById("mainCanvas");
-  const mainCtx = mainCanvas.getContext("2d", { alpha: false });
-  const thumbGrid = document.getElementById("thumbGrid");
-  const overlay = document.getElementById("overlay");
-  const status = document.getElementById("status");
-
+  const grid = document.getElementById("grid");
   document.getElementById("regen").addEventListener("click", () => location.reload());
 
-  // --- 作品定義（増やすのはここだけ） ---
-  // renderer: (ctx, W, H, state) => void
+  // =========================================================
+  // Works
+  // =========================================================
   const WORKS = [
-    {
-      id: "flowfield",
-      title: "Flow Field",
-      desc: "場に沿って筆致が流れる",
-      renderer: renderFlowField
-    },
-    {
-      id: "rings",
-      title: "Rings",
-      desc: "干渉縞のような円環",
-      renderer: renderRings
-    },
-    {
-      id: "shards",
-      title: "Shards",
-      desc: "割れた光片の抽象構成",
-      renderer: renderShards
-    }
+    { id:"flowfield", title:"Flow Field", desc:"場に沿って筆致が流れる", renderer: renderFlowField },
+    { id:"rings",     title:"Rings",     desc:"干渉縞のような円環",     renderer: renderRings },
+    { id:"shards",    title:"Shards",    desc:"割れた光片の抽象構成",   renderer: renderShards },
   ];
 
-  // 選択状態
-  let selectedIndex = 0;
+  // =========================================================
+  // Build cards
+  // =========================================================
+  build();
 
-  // --- 未観測：内部状態だけ進む（描画しない） ---
-  let state = makeState();
-  const unobservedTimer = setInterval(() => {
-    state.t += 0.016;
-    drift(state);
-  }, 16);
-
-  // --- 観測：ボタンで確定（ここでは“ページを開いた瞬間”ではなく展示仕様に合わせる） ---
-  // ※あなたが最初に求めた仕様は「ページを開いた瞬間に観測」だったけど、
-  //   今回は「複数展示＆生成ボタン」なので観測トリガーをボタンに移す。
-  //   ただし「ページを閉じたら未観測に戻る」は維持。
-  let observed = false;
-  let observedState = null;
-
-  document.getElementById("generate").addEventListener("click", () => {
-    if (observed) return; // 一度だけ確定（不可逆）
-    observeNow();
-  });
-
-  function observeNow() {
-  clearInterval(unobservedTimer);
-  observed = true;
-  status.textContent = "observed";
-  overlay.innerHTML = `確定：${WORKS[selectedIndex].title}<br>（再生成するにはリロード）`;
-
-  const { W, H } = resizeMain();
-
-  observedState = structuredClone(state);
-  observedState.viewer = { w: W, h: H, dpr: devicePixelRatio || 1 };
-  observedState.workId = WORKS[selectedIndex].id;
-
-  try {
-    WORKS[selectedIndex].renderer(mainCtx, W, H, observedState);
-  } catch (e) {
-    console.error("[main render failed]", WORKS[selectedIndex].id, e);
-    mainCtx.fillStyle = "rgb(10,12,16)";
-    mainCtx.fillRect(0, 0, W, H);
-    overlay.innerHTML = `生成に失敗：${WORKS[selectedIndex].title}<br>（Console を確認）`;
-  }
-  }
-
-  // リサイズは世界の再計算になるので無視（不可逆性）
-  window.addEventListener("resize", () => { /* intentionally empty */ });
-
-  // --- サムネの生成（軽量・いつでもOK） ---
-  // サムネは“展示のための見本”なので、不可逆ルールの対象外にして良い。
-  //（本番キャンバスだけが不可逆＝観測）
-  buildThumbs();
-
-  function buildThumbs() {
-    thumbGrid.innerHTML = "";
-    for (let i = 0; i < WORKS.length; i++) {
-      const w = WORKS[i];
-
+  function build(){
+    grid.innerHTML = "";
+    for (const w of WORKS){
       const card = document.createElement("div");
-      card.className = "thumb-card";
-      card.dataset.active = (i === selectedIndex) ? "true" : "false";
+      card.className = "card";
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `${w.title} を開く`);
 
-      const c = document.createElement("canvas");
-      c.className = "thumb";
-      c.width = 96 * (devicePixelRatio || 1);
-      c.height = 96 * (devicePixelRatio || 1);
+      const canvas = document.createElement("canvas");
+      canvas.className = "thumb";
 
-      const tctx = c.getContext("2d", { alpha: false });
-      tctx.setTransform(devicePixelRatio || 1,0,0,devicePixelRatio || 1,0,0);
+      // 16:10 の比率でピクセルを確保（Retina対応）
+      const W = 640, H = Math.floor(640 * 10/16);
+      const dpr = devicePixelRatio || 1;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
 
-      const tState = makeThumbState(i);
+      const ctx = canvas.getContext("2d", { alpha:false });
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+
+      // thumb state（軽量な“見本”）
+      const s = makeThumbState(w.id);
+
       try {
-  w.renderer(tctx, 96, 96, tState);
-} catch (e) {
-  // ここで落ちてもギャラリー全体は死なせない
-  console.error("[thumb render failed]", w.id, e);
-
-  // 代替表示（プレースホルダ）
-  tctx.fillStyle = "rgb(10,12,16)";
-  tctx.fillRect(0, 0, 96, 96);
-  tctx.strokeStyle = "rgba(255,255,255,.12)";
-  tctx.lineWidth = 1;
-  tctx.strokeRect(8, 8, 80, 80);
-}
+        w.renderer(ctx, W, H, s, { isThumb:true });
+      } catch (e) {
+        console.error("[thumb render failed]", w.id, e);
+        ctx.fillStyle = "rgb(10,12,16)";
+        ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle = "rgba(255,255,255,.12)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(12, 12, W-24, H-24);
+      }
 
       const meta = document.createElement("div");
+      meta.className = "meta";
       meta.innerHTML = `
-        <p class="t-title">${escapeHtml(w.title)}</p>
-        <p class="t-desc">${escapeHtml(w.desc)}</p>
+        <p class="name">${escapeHtml(w.title)}</p>
+        <p class="cap">${escapeHtml(w.desc)}</p>
       `;
 
-      card.appendChild(c);
+      card.appendChild(canvas);
       card.appendChild(meta);
 
-      card.addEventListener("click", () => {
-        if (observed) return; // 観測後は選択も固定（不可逆）
-        selectedIndex = i;
-        updateActive();
-        overlay.innerHTML = `未観測：${WORKS[selectedIndex].title}<br>「生成（観測）」で確定する。`;
+      // クリックで個室を新タブ表示
+      const open = () => {
+        window.open(`viewer.html?work=${encodeURIComponent(w.id)}`, "_blank", "noopener");
+      };
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); }
       });
 
-      thumbGrid.appendChild(card);
+      grid.appendChild(card);
     }
-    updateActive();
   }
 
-  function updateActive() {
-    Array.from(thumbGrid.children).forEach((el, idx) => {
-  el.dataset.active = (idx === selectedIndex) ? "true" : "false";
-});
-  }
-
-  // ---------------------------
-  // State / Palette
-  // ---------------------------
-  function makeState() {
+  // =========================================================
+  // States / Palette
+  // =========================================================
+  function makeThumbState(workId){
+    // 作品ごとの雰囲気を固定しつつ、毎回少し揺れる
+    const base = hash32(workId) ^ (Math.random() * 1e9);
     return {
-      seed: Math.random() * 1e9,
-      t: Math.random() * 1000,
-      field: {
-        a: 0.6 + Math.random() * 1.2,
-        b: 0.6 + Math.random() * 1.2,
-        c: 0.6 + Math.random() * 1.2,
-        d: 0.6 + Math.random() * 1.2
-      },
-      palette: makePalette()
-    };
-  }
-
-  function makeThumbState(i) {
-    // 作品ごとに雰囲気が変わるよう seed を少し固定
-    const base = (i + 1) * 99991;
-    return {
-      seed: base + Math.random() * 1e6,
-      t: Math.random() * 100,
+      seed: base >>> 0,
+      t: Math.random() * 50,
       field: { a: 1.0, b: 0.9, c: 1.1, d: 0.8 },
-      palette: makePalette()
+      palette: makePalette(base)
     };
   }
 
-  function drift(s) {
-    const r = mulberry32(s.seed + Math.floor(s.t * 60));
-    s.field.a += (r() - 0.5) * 0.002;
-    s.field.b += (r() - 0.5) * 0.002;
-    s.field.c += (r() - 0.5) * 0.002;
-    s.field.d += (r() - 0.5) * 0.002;
-  }
-
-  function makePalette() {
+  function makePalette(seed){
     const inks = [
       "rgba(199,210,255,1)",
       "rgba(255,210,199,1)",
       "rgba(199,255,233,1)",
       "rgba(255,255,255,1)"
     ];
-    return { bg: "rgb(10,12,16)", ink: shuffle(inks, Math.random() * 1e9).slice(0, 3) };
+    return { bg: "rgb(10,12,16)", ink: shuffle(inks, seed).slice(0,3) };
   }
 
-  // ---------------------------
-  // Renderers（作品ごとの差分はここ）
-  // ---------------------------
+  // =========================================================
+  // Renderers
+  // =========================================================
 
-  // 1) Flow Field（あなたの元のやつを作品化）
-  function renderFlowField(ctx, W, H, s) {
+  function renderFlowField(ctx, W, H, s, opt){
     ctx.fillStyle = s.palette.bg;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0,0,W,H);
 
-    const particles = makeParticles(W, H, Math.floor((W*H)/1200), s.seed);
+    const particles = makeParticles(W, H, Math.max(220, Math.floor((W*H)/2200)), s.seed);
 
     ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = Math.max(0.6, Math.min(W, H) * 0.0012);
+    ctx.lineWidth = Math.max(0.8, Math.min(W,H) * 0.0020);
 
-    for (let layer = 0; layer < 3; layer++) {
-      const color = s.palette.ink[layer % s.palette.ink.length];
-      ctx.strokeStyle = color;
+    for (let layer=0; layer<3; layer++){
+      ctx.strokeStyle = s.palette.ink[layer % s.palette.ink.length];
       ctx.globalAlpha = 0.20 + layer * 0.12;
 
-      for (let i = 0; i < particles.length; i++) {
-        drawFlowStroke(ctx, particles[i], s, W, H, 70 + layer * 30);
+      for (let i=0; i<particles.length; i++){
+        drawFlowStroke(ctx, particles[i], s, W, H, 55 + layer*22);
       }
     }
 
@@ -365,102 +255,95 @@
     ctx.globalAlpha = 1;
   }
 
-  function drawFlowStroke(ctx, p, s, W, H, steps) {
+  function drawFlowStroke(ctx, p, s, W, H, steps){
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 
-    let x = p.x, y = p.y;
-    const t0 = s.t;
+    let x=p.x, y=p.y;
+    const t0=s.t;
 
-    for (let k = 0; k < steps; k++) {
-      const v = fieldVec(x, y, t0, s, W, H);
+    for (let k=0; k<steps; k++){
+      const v = fieldVec(x,y,t0,s,W,H);
       x += v.vx;
       y += v.vy;
-      if (x < -20 || y < -20 || x > W + 20 || y > H + 20) break;
-      ctx.lineTo(x, y);
+      if (x<-20 || y<-20 || x>W+20 || y>H+20) break;
+      ctx.lineTo(x,y);
     }
     ctx.stroke();
   }
 
-  function fieldVec(x, y, t, s, W, H) {
-    const nx = (x / W) * 2 - 1;
-    const ny = (y / H) * 2 - 1;
+  function fieldVec(x,y,t,s,W,H){
+    const nx=(x/W)*2-1;
+    const ny=(y/H)*2-1;
 
-    const f = s.field;
-    const a = f.a, b = f.b, c = f.c, d = f.d;
+    const f=s.field;
+    const u = Math.sin((nx*f.a + t*0.7)*Math.PI) + Math.cos((ny*f.b - t*0.5)*Math.PI);
+    const v = Math.cos((ny*f.c + t*0.6)*Math.PI) - Math.sin((nx*f.d - t*0.4)*Math.PI);
 
-    const u = Math.sin((nx * a + t * 0.7) * Math.PI) + Math.cos((ny * b - t * 0.5) * Math.PI);
-    const v = Math.cos((ny * c + t * 0.6) * Math.PI) - Math.sin((nx * d - t * 0.4) * Math.PI);
+    const ang = Math.atan2(v,u);
+    const mag = 1.2 + 0.9*(Math.sin(u*1.3)*Math.cos(v*1.1));
+    const sp  = Math.min(W,H)*0.0032;
 
-    const ang = Math.atan2(v, u);
-    const mag = 1.2 + 0.9 * (Math.sin(u * 1.3) * Math.cos(v * 1.1));
-
-    const sp = Math.min(W, H) * 0.0022;
-    return { vx: Math.cos(ang) * mag * sp, vy: Math.sin(ang) * mag * sp };
+    return { vx: Math.cos(ang)*mag*sp, vy: Math.sin(ang)*mag*sp };
   }
 
-  // 2) Rings（干渉縞っぽい）
-  function renderRings(ctx, W, H, s) {
-  ctx.fillStyle = s.palette.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  const rnd = mulberry32(s.seed);
-  const cx = W * (0.35 + rnd() * 0.30);
-  const cy = H * (0.35 + rnd() * 0.30);
-
-  ctx.globalCompositeOperation = "screen";
-  ctx.lineWidth = Math.max(1.2, Math.min(W, H) * 0.0018);
-
-  const rings = Math.floor(Math.min(W, H) / 10);
-  for (let i = 1; i < rings; i++) {
-    const r = i * 6 + (rnd() - 0.5) * 2;
-
-    // i が増えるほど中心から遠いので薄くする
-    const t = i / rings;                 // 0..1
-    const centerBoost = 1.0 - 0.65 * t;  // 中心ほど濃い（最大1.0）
-
-    // リングごとの強弱（縞っぽさ）
-    const w = 0.5 + 0.7 * Math.sin(i * 0.15 + s.t);
-
-    const col = s.palette.ink[i % s.palette.ink.length];
-    ctx.strokeStyle = col;
-
-    // ★ globalAlpha はここで1回だけ決める（上書きしない）
-    ctx.globalAlpha = Math.max(0.06, (0.16 + 0.22 * w) * centerBoost);
-
-    ctx.beginPath();
-    ctx.ellipse(
-      cx, cy,
-      r * (1.0 + 0.08 * Math.sin(i * 0.07)),
-      r,
-      (rnd() - 0.5) * 0.2,
-      0, Math.PI * 2
-    );
-    ctx.stroke();
-  }
-
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = 0.06;
-  grain(ctx, W, H, s.seed);
-  ctx.globalAlpha = 1;
-}
-
-  // 3) Shards（光片コラージュ）
-  function renderShards(ctx, W, H, s) {
+  function renderRings(ctx, W, H, s, opt){
     ctx.fillStyle = s.palette.bg;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0,0,W,H);
+
+    const rnd = mulberry32(s.seed);
+    const cx = W*(0.35 + rnd()*0.30);
+    const cy = H*(0.35 + rnd()*0.30);
+
+    ctx.globalCompositeOperation = "screen";
+    ctx.lineWidth = Math.max(1.0, Math.min(W,H)*0.0021);
+
+    const step = Math.max(3.5, Math.min(W,H)/90);
+    const rings = Math.floor(Math.min(W,H)/step);
+
+    for (let i=0; i<rings; i++){
+      // ★ 必ず正の半径にする（負値事故を封じる）
+      const baseR = i * step;
+      const jitter = (rnd()-0.5) * step * 0.6;
+      const r = Math.max(0.15, baseR + jitter);
+
+      const t = i / rings;
+      const centerBoost = 1.0 - 0.65*t;
+      const w = 0.5 + 0.7*Math.sin(i*0.15 + s.t);
+
+      ctx.strokeStyle = s.palette.ink[i % s.palette.ink.length];
+      ctx.globalAlpha = Math.max(0.06, (0.16 + 0.22*w) * centerBoost);
+
+      const rx = r * (1.0 + 0.08*Math.sin(i*0.07));
+      const ry = r;
+
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, (rnd()-0.5)*0.2, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.06;
+    grain(ctx, W, H, s.seed);
+    ctx.globalAlpha = 1;
+  }
+
+  function renderShards(ctx, W, H, s, opt){
+    ctx.fillStyle = s.palette.bg;
+    ctx.fillRect(0,0,W,H);
 
     const rnd = mulberry32(s.seed);
     ctx.globalCompositeOperation = "lighter";
 
-    const n = Math.max(3, Math.floor((W*H) / 25000));
-    for (let i = 0; i < n; i++) {
-      const x = rnd()*W, y = rnd()*H;
-      const size = 30 + rnd()*180;
+    // ★ サムネでも必ず見えるように最低保証
+    const n = Math.max(18, Math.floor((W*H)/22000));
+
+    for (let i=0; i<n; i++){
+      const x=rnd()*W, y=rnd()*H;
+      const size = 22 + rnd()*140;
       const ang = rnd()*Math.PI*2;
 
-      const col = s.palette.ink[i % s.palette.ink.length];
-      ctx.fillStyle = col;
+      ctx.fillStyle = s.palette.ink[i % s.palette.ink.length];
       ctx.globalAlpha = 0.08 + rnd()*0.14;
 
       ctx.save();
@@ -468,9 +351,9 @@
       ctx.rotate(ang);
       ctx.beginPath();
       ctx.moveTo(-size*0.5, -size*0.2);
-      ctx.lineTo(size*0.55, -size*0.05);
-      ctx.lineTo(size*0.25, size*0.35);
-      ctx.lineTo(-size*0.45, size*0.25);
+      ctx.lineTo( size*0.55, -size*0.05);
+      ctx.lineTo( size*0.25,  size*0.35);
+      ctx.lineTo(-size*0.45,  size*0.25);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
@@ -482,56 +365,51 @@
     ctx.globalAlpha = 1;
   }
 
-  // ---------------------------
+  // =========================================================
   // Utils
-  // ---------------------------
-  function resizeMain() {
-    const dpr = devicePixelRatio || 1;
-  const rect = mainCanvas.getBoundingClientRect();
-
-  const w = Math.max(1, Math.floor(rect.width  * dpr));
-  const h = Math.max(1, Math.floor(rect.height * dpr));
-
-  if (mainCanvas.width !== w)  mainCanvas.width  = w;
-  if (mainCanvas.height !== h) mainCanvas.height = h;
-
-  mainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  // CSSピクセルで扱うため、以後は rect.width/height を W,H として使う
-  return { W: rect.width, H: rect.height };
-}
-
-  function makeParticles(W, H, n, seed) {
+  // =========================================================
+  function makeParticles(W,H,n,seed){
     const rnd = mulberry32(seed);
     const ps = new Array(n);
-    for (let i = 0; i < n; i++) ps[i] = { x: rnd() * W, y: rnd() * H };
+    for (let i=0; i<n; i++) ps[i] = { x:rnd()*W, y:rnd()*H };
     return ps;
   }
 
-  function grain(ctx, W, H, seed) {
+  function grain(ctx, W, H, seed){
     const rnd = mulberry32(seed + 12345);
-    const count = Math.floor((W * H) / 8000);
+    const count = Math.floor((W*H)/8000);
     ctx.fillStyle = "white";
-    for (let i = 0; i < count; i++) ctx.fillRect(rnd() * W, rnd() * H, 1, 1);
+    for (let i=0; i<count; i++) ctx.fillRect(rnd()*W, rnd()*H, 1, 1);
   }
 
-  function mulberry32(a) {
-    return function() {
+  function mulberry32(a){
+    a = (a >>> 0);
+    return function(){
       let t = a += 0x6D2B79F5;
       t = Math.imul(t ^ (t >>> 15), t | 1);
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    }
+    };
   }
 
-  function shuffle(arr, seed) {
+  function shuffle(arr, seed){
     const rnd = mulberry32(seed);
     const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
+    for (let i=a.length-1; i>0; i--){
+      const j = Math.floor(rnd()*(i+1));
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  }
+
+  function hash32(str){
+    // FNV-1a 32bit
+    let h = 0x811c9dc5;
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
   }
 
   function escapeHtml(str){
