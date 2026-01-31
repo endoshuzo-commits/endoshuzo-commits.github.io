@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>観測で確定する抽象画 | Still Latency</title>
+  <style>
+    :root{
+      --bg:#0b0d10;
+      --fg:#e8e8e8;
+      --muted:#a9b0bb;
+      --line:#2a2f38;
+      --link:#c7d2ff;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);}
+    body{font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI","Noto Sans JP","Hiragino Kaku Gothic ProN", Meiryo, sans-serif;}
+    a{color:var(--link);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    .wrap{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr;}
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid var(--line);
+      background:rgba(11,13,16,.72);backdrop-filter: blur(10px);
+    }
+    header .left{display:flex;gap:12px;align-items:baseline;}
+    header .title{font-size:14px;letter-spacing:.02em;}
+    header .desc{font-size:12px;color:var(--muted);}
+    header .right{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);}
+    button{
+      background:transparent;border:1px solid var(--line);color:var(--fg);
+      padding:8px 10px;border-radius:10px;cursor:pointer;
+    }
+    button:hover{border-color:#3a4150;}
+    canvas{display:block;width:100%;height:100%;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="left">
+        <div class="title">観測で確定する抽象画</div>
+        <div class="desc">ページを開いた瞬間に一度だけ収束して静止画になる</div>
+      </div>
+      <div class="right">
+        <a href="../">← Still Latency</a>
+        <button id="regen" title="リロードと同等：別世界へ">別世界（リロード）</button>
+      </div>
+    </header>
+
+    <canvas id="c"></canvas>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d", { alpha: false });
+
+  // 「別世界」ボタン：単に reload（保存しない主義に合う）
+  document.getElementById("regen").addEventListener("click", () => location.reload());
+
+  // ---------------------------
+  // 未観測：内部状態だけ進む（描画しない）
+  // ---------------------------
+  let state = {
+    seed: Math.random() * 1e9,
+    t: Math.random() * 1000,
+    field: {
+      a: 0.6 + Math.random() * 1.2,
+      b: 0.6 + Math.random() * 1.2,
+      c: 0.6 + Math.random() * 1.2,
+      d: 0.6 + Math.random() * 1.2
+    },
+    palette: makePalette()
+  };
+
+  const unobservedTimer = setInterval(() => {
+    state.t += 0.016;
+    drift(state);
+  }, 16);
+
+  // ---------------------------
+  // 観測：表示された瞬間にスナップショット→一度だけ描画
+  // ---------------------------
+  let observed = false;
+  let observedState = null;
+
+  function observeNow() {
+    if (observed) return;
+    observed = true;
+
+    resize();
+
+    observedState = structuredClone(state);
+    observedState.viewer = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
+
+    render(observedState);
+  }
+
+  window.addEventListener("pageshow", observeNow);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") observeNow();
+  });
+  if (document.visibilityState === "visible") observeNow();
+
+  // リサイズは「世界の再計算」なので無視（不可逆性のため）
+  window.addEventListener("resize", () => { /* intentionally empty */ });
+
+  // ---------------------------
+  // 描画
+  // ---------------------------
+  function render(s) {
+    const W = innerWidth, H = innerHeight;
+
+    ctx.fillStyle = s.palette.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const particles = makeParticles(W, H, 900, s.seed);
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = Math.max(0.6, Math.min(W, H) * 0.0012);
+
+    for (let layer = 0; layer < 3; layer++) {
+      const color = s.palette.ink[layer % s.palette.ink.length];
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.20 + layer * 0.12;
+
+      for (let i = 0; i < particles.length; i++) {
+        drawFlowStroke(particles[i], s, W, H, 90 + layer * 40);
+      }
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.06;
+    grain(W, H, s.seed);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFlowStroke(p, s, W, H, steps) {
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+
+    let x = p.x, y = p.y;
+    const t0 = s.t;
+
+    for (let k = 0; k < steps; k++) {
+      const v = fieldVec(x, y, t0, s, W, H);
+      x += v.vx;
+      y += v.vy;
+
+      if (x < -20 || y < -20 || x > W + 20 || y > H + 20) break;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function fieldVec(x, y, t, s, W, H) {
+    const nx = (x / W) * 2 - 1;
+    const ny = (y / H) * 2 - 1;
+
+    const f = s.field;
+    const a = f.a, b = f.b, c = f.c, d = f.d;
+
+    const u = Math.sin((nx * a + t * 0.7) * Math.PI) + Math.cos((ny * b - t * 0.5) * Math.PI);
+    const v = Math.cos((ny * c + t * 0.6) * Math.PI) - Math.sin((nx * d - t * 0.4) * Math.PI);
+
+    const ang = Math.atan2(v, u);
+    const mag = 1.2 + 0.9 * (Math.sin(u * 1.3) * Math.cos(v * 1.1));
+
+    const sp = Math.min(W, H) * 0.0022;
+    return { vx: Math.cos(ang) * mag * sp, vy: Math.sin(ang) * mag * sp };
+  }
+
+  function makeParticles(W, H, n, seed) {
+    const rnd = mulberry32(seed);
+    const ps = new Array(n);
+    for (let i = 0; i < n; i++) ps[i] = { x: rnd() * W, y: rnd() * H };
+    return ps;
+  }
+
+  function resize() {
+    const dpr = devicePixelRatio || 1;
+    canvas.width  = Math.floor(innerWidth * dpr);
+    canvas.height = Math.floor(innerHeight * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function drift(s) {
+    const r = mulberry32(s.seed + Math.floor(s.t * 60));
+    s.field.a += (r() - 0.5) * 0.002;
+    s.field.b += (r() - 0.5) * 0.002;
+    s.field.c += (r() - 0.5) * 0.002;
+    s.field.d += (r() - 0.5) * 0.002;
+  }
+
+  function makePalette() {
+    const inks = [
+      "rgba(199,210,255,1)",
+      "rgba(255,210,199,1)",
+      "rgba(199,255,233,1)",
+      "rgba(255,255,255,1)"
+    ];
+    return { bg: "rgb(10,12,16)", ink: shuffle(inks, Math.random() * 1e9).slice(0, 3) };
+  }
+
+  function grain(W, H, seed) {
+    const rnd = mulberry32(seed + 12345);
+    const count = Math.floor((W * H) / 8000);
+    ctx.fillStyle = "white";
+    for (let i = 0; i < count; i++) ctx.fillRect(rnd() * W, rnd() * H, 1, 1);
+  }
+
+  function mulberry32(a) {
+    return function() {
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+  }
+
+  function shuffle(arr, seed) {
+    const rnd = mulberry32(seed);
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+})();
+</script>
+</body>
+</html>
