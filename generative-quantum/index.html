@@ -418,7 +418,7 @@
     ctx.strokeStyle = col;
 
     // ★ globalAlpha はここで1回だけ決める（上書きしない）
-    ctx.globalAlpha = (0.16 + 0.22 * w) * centerBoost;
+    ctx.globalAlpha = Math.max(0.06, (0.16 + 0.22 * w) * centerBoost);
 
     ctx.beginPath();
     ctx.ellipse(
