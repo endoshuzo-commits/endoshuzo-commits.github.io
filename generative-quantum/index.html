@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>観測で確定する抽象画 | Still Latency</title>
+  <title>Generative Gallery | Still Latency</title>
   <style>
     :root{
       --bg:#0b0d10;
@@ -11,12 +11,22 @@
       --muted:#a9b0bb;
       --line:#2a2f38;
       --link:#c7d2ff;
+      --card:#11141a;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);}
-    body{font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI","Noto Sans JP","Hiragino Kaku Gothic ProN", Meiryo, sans-serif;}
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+                   "Noto Sans JP","Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
     a{color:var(--link);text-decoration:none;}
     a:hover{text-decoration:underline;}
+    button{
+      background:transparent;border:1px solid var(--line);color:var(--fg);
+      padding:8px 10px;border-radius:10px;cursor:pointer;
+    }
+    button:hover{border-color:#3a4150;}
     .wrap{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr;}
+
     header{
       display:flex;align-items:center;justify-content:space-between;
       padding:14px 18px;border-bottom:1px solid var(--line);
@@ -26,12 +36,72 @@
     header .title{font-size:14px;letter-spacing:.02em;}
     header .desc{font-size:12px;color:var(--muted);}
     header .right{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);}
-    button{
-      background:transparent;border:1px solid var(--line);color:var(--fg);
-      padding:8px 10px;border-radius:10px;cursor:pointer;
+
+    /* レイアウト：左ギャラリー / 右プレビュー */
+    .main{
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      height:100%;
+      min-height:0;
     }
-    button:hover{border-color:#3a4150;}
-    canvas{display:block;width:100%;height:100%;}
+    @media (max-width: 900px){
+      .main{grid-template-columns: 1fr; grid-template-rows: auto 1fr;}
+    }
+
+    /* Gallery */
+    .gallery{
+      border-right:1px solid var(--line);
+      padding:16px;
+      overflow:auto;
+      background:rgba(17,20,26,.25);
+    }
+    @media (max-width: 900px){
+      .gallery{border-right:none;border-bottom:1px solid var(--line);}
+    }
+    .g-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    .g-head .k{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+    .thumb-card{
+      display:grid;
+      grid-template-columns: 96px 1fr;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(17,20,26,.55);
+      cursor:pointer;
+      user-select:none;
+    }
+    .thumb-card:hover{border-color:#3a4150;}
+    .thumb-card[data-active="true"]{
+      border-color: rgba(199,210,255,.7);
+      box-shadow: 0 0 0 1px rgba(199,210,255,.2) inset;
+    }
+    .thumb{
+      width:96px;height:96px;border-radius:12px;display:block;
+      background:#0a0c10;border:1px solid rgba(255,255,255,.06);
+    }
+    .t-title{font-size:13px;margin:0 0 4px;}
+    .t-desc{font-size:12px;color:var(--muted);margin:0;line-height:1.5;}
+
+    /* Preview */
+    .preview{
+      position:relative;
+      min-height:0;
+    }
+    .preview canvas{display:block;width:100%;height:100%;}
+    .overlay{
+      position:absolute;left:18px;bottom:14px;
+      color:rgba(255,255,255,.55);
+      font-size:12px;line-height:1.4;
+      pointer-events:none;user-select:none;
+      text-shadow: 0 1px 12px rgba(0,0,0,.6);
+    }
   </style>
 </head>
 
@@ -39,83 +109,222 @@
   <div class="wrap">
     <header>
       <div class="left">
-        <div class="title">観測で確定する抽象画</div>
-        <div class="desc">ページを開いた瞬間に一度だけ収束して静止画になる</div>
+        <div class="title">Generative Gallery</div>
+        <div class="desc">作品を選び、生成ボタンで“観測＝確定”</div>
       </div>
       <div class="right">
         <a href="../">← Still Latency</a>
-        <button id="regen" title="リロードと同等：別世界へ">別世界（リロード）</button>
+        <button id="generate" title="選択中の作品を確定生成">生成（観測）</button>
+        <button id="regen" title="ページをリロードして全て未観測へ">別世界（リロード）</button>
       </div>
     </header>
 
-    <canvas id="c"></canvas>
+    <div class="main">
+      <aside class="gallery">
+        <div class="g-head">
+          <div class="k">Works</div>
+          <div class="k" id="status">unobserved</div>
+        </div>
+        <div class="grid" id="thumbGrid"></div>
+      </aside>
+
+      <section class="preview">
+        <canvas id="mainCanvas"></canvas>
+        <div class="overlay" id="overlay">
+          未観測：まだ何も確定していない。<br>
+          左の作品を選んで「生成（観測）」を押す。
+        </div>
+      </section>
+    </div>
   </div>
 
 <script>
 (() => {
-  const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d", { alpha: false });
+  // =========================================================
+  // コンセプト：
+  // - サムネは“見本”（軽量に即時描画）
+  // - 本番は「生成（観測）」ボタンで一度だけ確定
+  // - ページを閉じたら全て消える（永続化しない）
+  // =========================================================
 
-  // 「別世界」ボタン：単に reload（保存しない主義に合う）
+  const mainCanvas = document.getElementById("mainCanvas");
+  const mainCtx = mainCanvas.getContext("2d", { alpha: false });
+  const thumbGrid = document.getElementById("thumbGrid");
+  const overlay = document.getElementById("overlay");
+  const status = document.getElementById("status");
+
   document.getElementById("regen").addEventListener("click", () => location.reload());
 
-  // ---------------------------
-  // 未観測：内部状態だけ進む（描画しない）
-  // ---------------------------
-  let state = {
-    seed: Math.random() * 1e9,
-    t: Math.random() * 1000,
-    field: {
-      a: 0.6 + Math.random() * 1.2,
-      b: 0.6 + Math.random() * 1.2,
-      c: 0.6 + Math.random() * 1.2,
-      d: 0.6 + Math.random() * 1.2
+  // --- 作品定義（増やすのはここだけ） ---
+  // renderer: (ctx, W, H, state) => void
+  const WORKS = [
+    {
+      id: "flowfield",
+      title: "Flow Field",
+      desc: "場に沿って筆致が流れる",
+      renderer: renderFlowField
     },
-    palette: makePalette()
-  };
+    {
+      id: "rings",
+      title: "Rings",
+      desc: "干渉縞のような円環",
+      renderer: renderRings
+    },
+    {
+      id: "shards",
+      title: "Shards",
+      desc: "割れた光片の抽象構成",
+      renderer: renderShards
+    }
+  ];
 
+  // 選択状態
+  let selectedIndex = 0;
+
+  // --- 未観測：内部状態だけ進む（描画しない） ---
+  let state = makeState();
   const unobservedTimer = setInterval(() => {
     state.t += 0.016;
     drift(state);
   }, 16);
 
-  // ---------------------------
-  // 観測：表示された瞬間にスナップショット→一度だけ描画
-  // ---------------------------
+  // --- 観測：ボタンで確定（ここでは“ページを開いた瞬間”ではなく展示仕様に合わせる） ---
+  // ※あなたが最初に求めた仕様は「ページを開いた瞬間に観測」だったけど、
+  //   今回は「複数展示＆生成ボタン」なので観測トリガーをボタンに移す。
+  //   ただし「ページを閉じたら未観測に戻る」は維持。
   let observed = false;
   let observedState = null;
 
+  document.getElementById("generate").addEventListener("click", () => {
+    if (observed) return; // 一度だけ確定（不可逆）
+    observeNow();
+  });
+
   function observeNow() {
-    if (observed) return;
     observed = true;
+    status.textContent = "observed";
+    overlay.innerHTML = `確定：${WORKS[selectedIndex].title}<br>（再生成するにはリロード）`;
 
-    resize();
-
+    resizeMain();
     observedState = structuredClone(state);
     observedState.viewer = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
+    observedState.workId = WORKS[selectedIndex].id;
 
-    render(observedState);
+    // 一度だけ描画
+    WORKS[selectedIndex].renderer(mainCtx, innerWidth, innerHeight, observedState);
   }
 
-  window.addEventListener("pageshow", observeNow);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") observeNow();
-  });
-  if (document.visibilityState === "visible") observeNow();
-
-  // リサイズは「世界の再計算」なので無視（不可逆性のため）
+  // リサイズは世界の再計算になるので無視（不可逆性）
   window.addEventListener("resize", () => { /* intentionally empty */ });
 
-  // ---------------------------
-  // 描画
-  // ---------------------------
-  function render(s) {
-    const W = innerWidth, H = innerHeight;
+  // --- サムネの生成（軽量・いつでもOK） ---
+  // サムネは“展示のための見本”なので、不可逆ルールの対象外にして良い。
+  //（本番キャンバスだけが不可逆＝観測）
+  buildThumbs();
 
+  function buildThumbs() {
+    thumbGrid.innerHTML = "";
+    for (let i = 0; i < WORKS.length; i++) {
+      const w = WORKS[i];
+
+      const card = document.createElement("div");
+      card.className = "thumb-card";
+      card.dataset.active = (i === selectedIndex) ? "true" : "false";
+
+      const c = document.createElement("canvas");
+      c.className = "thumb";
+      c.width = 96 * (devicePixelRatio || 1);
+      c.height = 96 * (devicePixelRatio || 1);
+
+      const tctx = c.getContext("2d", { alpha: false });
+      tctx.setTransform(devicePixelRatio || 1,0,0,devicePixelRatio || 1,0,0);
+
+      const tState = makeThumbState(i);
+      w.renderer(tctx, 96, 96, tState);
+
+      const meta = document.createElement("div");
+      meta.innerHTML = `
+        <p class="t-title">${escapeHtml(w.title)}</p>
+        <p class="t-desc">${escapeHtml(w.desc)}</p>
+      `;
+
+      card.appendChild(c);
+      card.appendChild(meta);
+
+      card.addEventListener("click", () => {
+        if (observed) return; // 観測後は選択も固定（不可逆）
+        selectedIndex = i;
+        updateActive();
+        overlay.innerHTML = `未観測：${WORKS[selectedIndex].title}<br>「生成（観測）」で確定する。`;
+      });
+
+      thumbGrid.appendChild(card);
+    }
+    updateActive();
+  }
+
+  function updateActive() {
+    [...thumbGrid.children].forEach((el, idx) => {
+      el.dataset.active = (idx === selectedIndex) ? "true" : "false";
+    });
+  }
+
+  // ---------------------------
+  // State / Palette
+  // ---------------------------
+  function makeState() {
+    return {
+      seed: Math.random() * 1e9,
+      t: Math.random() * 1000,
+      field: {
+        a: 0.6 + Math.random() * 1.2,
+        b: 0.6 + Math.random() * 1.2,
+        c: 0.6 + Math.random() * 1.2,
+        d: 0.6 + Math.random() * 1.2
+      },
+      palette: makePalette()
+    };
+  }
+
+  function makeThumbState(i) {
+    // 作品ごとに雰囲気が変わるよう seed を少し固定
+    const base = (i + 1) * 99991;
+    return {
+      seed: base + Math.random() * 1e6,
+      t: Math.random() * 100,
+      field: { a: 1.0, b: 0.9, c: 1.1, d: 0.8 },
+      palette: makePalette()
+    };
+  }
+
+  function drift(s) {
+    const r = mulberry32(s.seed + Math.floor(s.t * 60));
+    s.field.a += (r() - 0.5) * 0.002;
+    s.field.b += (r() - 0.5) * 0.002;
+    s.field.c += (r() - 0.5) * 0.002;
+    s.field.d += (r() - 0.5) * 0.002;
+  }
+
+  function makePalette() {
+    const inks = [
+      "rgba(199,210,255,1)",
+      "rgba(255,210,199,1)",
+      "rgba(199,255,233,1)",
+      "rgba(255,255,255,1)"
+    ];
+    return { bg: "rgb(10,12,16)", ink: shuffle(inks, Math.random() * 1e9).slice(0, 3) };
+  }
+
+  // ---------------------------
+  // Renderers（作品ごとの差分はここ）
+  // ---------------------------
+
+  // 1) Flow Field（あなたの元のやつを作品化）
+  function renderFlowField(ctx, W, H, s) {
     ctx.fillStyle = s.palette.bg;
     ctx.fillRect(0, 0, W, H);
 
-    const particles = makeParticles(W, H, 900, s.seed);
+    const particles = makeParticles(W, H, Math.floor((W*H)/1200), s.seed);
 
     ctx.globalCompositeOperation = "lighter";
     ctx.lineWidth = Math.max(0.6, Math.min(W, H) * 0.0012);
@@ -126,17 +335,17 @@
       ctx.globalAlpha = 0.20 + layer * 0.12;
 
       for (let i = 0; i < particles.length; i++) {
-        drawFlowStroke(particles[i], s, W, H, 90 + layer * 40);
+        drawFlowStroke(ctx, particles[i], s, W, H, 70 + layer * 30);
       }
     }
 
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 0.06;
-    grain(W, H, s.seed);
+    grain(ctx, W, H, s.seed);
     ctx.globalAlpha = 1;
   }
 
-  function drawFlowStroke(p, s, W, H, steps) {
+  function drawFlowStroke(ctx, p, s, W, H, steps) {
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 
@@ -147,7 +356,6 @@
       const v = fieldVec(x, y, t0, s, W, H);
       x += v.vx;
       y += v.vy;
-
       if (x < -20 || y < -20 || x > W + 20 || y > H + 20) break;
       ctx.lineTo(x, y);
     }
@@ -171,6 +379,85 @@
     return { vx: Math.cos(ang) * mag * sp, vy: Math.sin(ang) * mag * sp };
   }
 
+  // 2) Rings（干渉縞っぽい）
+  function renderRings(ctx, W, H, s) {
+    ctx.fillStyle = s.palette.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const rnd = mulberry32(s.seed);
+    const cx = W * (0.35 + rnd() * 0.30);
+    const cy = H * (0.35 + rnd() * 0.30);
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = Math.max(0.8, Math.min(W,H) * 0.001);
+
+    const rings = Math.floor(Math.min(W,H) / 10);
+    for (let i = 0; i < rings; i++) {
+      const r = i * 6 + (rnd()-0.5)*2;
+      const w = 0.5 + 0.7 * Math.sin(i * 0.15 + s.t);
+      const col = s.palette.ink[i % s.palette.ink.length];
+
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.08 + 0.08 * w;
+
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r * (1.0 + 0.08*Math.sin(i*0.07)), r, (rnd()-0.5)*0.2, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.06;
+    grain(ctx, W, H, s.seed);
+    ctx.globalAlpha = 1;
+  }
+
+  // 3) Shards（光片コラージュ）
+  function renderShards(ctx, W, H, s) {
+    ctx.fillStyle = s.palette.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const rnd = mulberry32(s.seed);
+    ctx.globalCompositeOperation = "lighter";
+
+    const n = Math.floor((W*H) / 25000);
+    for (let i = 0; i < n; i++) {
+      const x = rnd()*W, y = rnd()*H;
+      const size = 30 + rnd()*180;
+      const ang = rnd()*Math.PI*2;
+
+      const col = s.palette.ink[i % s.palette.ink.length];
+      ctx.fillStyle = col;
+      ctx.globalAlpha = 0.08 + rnd()*0.14;
+
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(ang);
+      ctx.beginPath();
+      ctx.moveTo(-size*0.5, -size*0.2);
+      ctx.lineTo(size*0.55, -size*0.05);
+      ctx.lineTo(size*0.25, size*0.35);
+      ctx.lineTo(-size*0.45, size*0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.06;
+    grain(ctx, W, H, s.seed);
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------------------------
+  // Utils
+  // ---------------------------
+  function resizeMain() {
+    const dpr = devicePixelRatio || 1;
+    mainCanvas.width  = Math.floor(innerWidth * dpr);
+    mainCanvas.height = Math.floor(innerHeight * dpr);
+    mainCtx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
   function makeParticles(W, H, n, seed) {
     const rnd = mulberry32(seed);
     const ps = new Array(n);
@@ -178,32 +465,7 @@
     return ps;
   }
 
-  function resize() {
-    const dpr = devicePixelRatio || 1;
-    canvas.width  = Math.floor(innerWidth * dpr);
-    canvas.height = Math.floor(innerHeight * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-
-  function drift(s) {
-    const r = mulberry32(s.seed + Math.floor(s.t * 60));
-    s.field.a += (r() - 0.5) * 0.002;
-    s.field.b += (r() - 0.5) * 0.002;
-    s.field.c += (r() - 0.5) * 0.002;
-    s.field.d += (r() - 0.5) * 0.002;
-  }
-
-  function makePalette() {
-    const inks = [
-      "rgba(199,210,255,1)",
-      "rgba(255,210,199,1)",
-      "rgba(199,255,233,1)",
-      "rgba(255,255,255,1)"
-    ];
-    return { bg: "rgb(10,12,16)", ink: shuffle(inks, Math.random() * 1e9).slice(0, 3) };
-  }
-
-  function grain(W, H, seed) {
+  function grain(ctx, W, H, seed) {
     const rnd = mulberry32(seed + 12345);
     const count = Math.floor((W * H) / 8000);
     ctx.fillStyle = "white";
@@ -227,6 +489,15 @@
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  }
+
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
   }
 })();
 </script>
