@@ -393,37 +393,49 @@
 
   // 2) Rings（干渉縞っぽい）
   function renderRings(ctx, W, H, s) {
-    ctx.fillStyle = s.palette.bg;
-    ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = s.palette.bg;
+  ctx.fillRect(0, 0, W, H);
 
-    const rnd = mulberry32(s.seed);
-    const cx = W * (0.35 + rnd() * 0.30);
-    const cy = H * (0.35 + rnd() * 0.30);
+  const rnd = mulberry32(s.seed);
+  const cx = W * (0.35 + rnd() * 0.30);
+  const cy = H * (0.35 + rnd() * 0.30);
 
-    ctx.globalCompositeOperation = "screen"
-    ctx.lineWidth = Math.max(1.2, Math.min(W,H) * 0.0018);
+  ctx.globalCompositeOperation = "screen";
+  ctx.lineWidth = Math.max(1.2, Math.min(W, H) * 0.0018);
 
-    const rings = Math.floor(Math.min(W,H) / 10);
-    for (let i = 0; i < rings; i++) {
-      const r = i * 6 + (rnd()-0.5)*2;
-      const w = 0.5 + 0.7 * Math.sin(i * 0.15 + s.t);
-      const col = s.palette.ink[i % s.palette.ink.length];
-const t = i / rings;                 // 0..1
-const centerBoost = 1.0 - 0.65*t;    // 中心ほど濃く
-ctx.globalAlpha = (0.16 + 0.22*w) * centerBoost;
-      ctx.strokeStyle = col;
-      ctx.globalAlpha = 0.14 + 0.18 * w;
+  const rings = Math.floor(Math.min(W, H) / 10);
+  for (let i = 0; i < rings; i++) {
+    const r = i * 6 + (rnd() - 0.5) * 2;
 
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, r * (1.0 + 0.08*Math.sin(i*0.07)), r, (rnd()-0.5)*0.2, 0, Math.PI*2);
-      ctx.stroke();
-    }
+    // i が増えるほど中心から遠いので薄くする
+    const t = i / rings;                 // 0..1
+    const centerBoost = 1.0 - 0.65 * t;  // 中心ほど濃い（最大1.0）
 
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.06;
-    grain(ctx, W, H, s.seed);
-    ctx.globalAlpha = 1;
+    // リングごとの強弱（縞っぽさ）
+    const w = 0.5 + 0.7 * Math.sin(i * 0.15 + s.t);
+
+    const col = s.palette.ink[i % s.palette.ink.length];
+    ctx.strokeStyle = col;
+
+    // ★ globalAlpha はここで1回だけ決める（上書きしない）
+    ctx.globalAlpha = (0.16 + 0.22 * w) * centerBoost;
+
+    ctx.beginPath();
+    ctx.ellipse(
+      cx, cy,
+      r * (1.0 + 0.08 * Math.sin(i * 0.07)),
+      r,
+      (rnd() - 0.5) * 0.2,
+      0, Math.PI * 2
+    );
+    ctx.stroke();
   }
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 0.06;
+  grain(ctx, W, H, s.seed);
+  ctx.globalAlpha = 1;
+}
 
   // 3) Shards（光片コラージュ）
   function renderShards(ctx, W, H, s) {
