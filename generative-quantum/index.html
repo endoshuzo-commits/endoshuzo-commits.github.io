@@ -229,7 +229,7 @@
         d: 0.6 + mulberry32(seed+3)()*1.2
       },
       palette: makePalette(seed),
-      abs: makeAbstractParams(seed)
+      abs: makeAbstractParams(seed, workId)
     };
   }
 
@@ -244,22 +244,33 @@
   }
 
   // 抽象画用の “紙/絵具” パレット（サムネでも見える寄り）
-  function makeAbstractParams(seed){
-    const rnd = mulberry32(seed);
+  function makeAbstractParams(seed, workId){
+  const rnd = mulberry32(seed);
 
-    const palettes = [
-      { name:"paper-ink", bg:"#f2ead7", inks:["#0b0d10","#e53935","#1e5eff","#ffb300","#2e7d32","#ffffff"] },
-      { name:"cold-fire", bg:"#071018", inks:["#b2ebf2","#4dd0e1","#1565c0","#ff1744","#ffd180","#ffffff","#0b0d10"] },
-      { name:"dusty",     bg:"#efe7d8", inks:["#11141a","#263238","#c62828","#1565c0","#2e7d32","#f9f5ef"] },
-    ];
-    const pal = palettes[Math.floor(rnd()*palettes.length)];
+  // 背景を作品タイプで固定
+  const PAL_LIGHT = {
+    name:"dusty",
+    bg:"#efe7d8",
+    inks:["#11141a","#263238","#c62828","#1565c0","#2e7d32","#f9f5ef"]
+  };
 
-    return {
-      pal,
-      paper: 0.10 + rnd()*0.10,
-      vignette: 0.35 + rnd()*0.25
-    };
-  }
+  const PAL_DARK = {
+    name:"cold-fire",
+    bg:"#071018",
+    inks:["#b2ebf2","#4dd0e1","#1565c0","#ff1744","#ffd180","#ffffff","#0b0d10"]
+  };
+    }
+
+  const pal = (workId === "abstract_hybrid") ? PAL_DARK : PAL_LIGHT;
+
+  return {
+    pal,
+    paper: 0.10 + rnd()*0.10,
+    vignette: (workId === "abstract_hybrid")
+      ? (0.45 + rnd()*0.20)   // 暗い方はやや強め
+      : (0.28 + rnd()*0.18)   // 明るい方は弱め
+  };
+}
 
   // =========================================================
   // Renderers (existing)
