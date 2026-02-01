@@ -110,6 +110,7 @@
   const params = new URLSearchParams(location.search);
   const workId = params.get("work") || "flowfield";
   const work = WORKS.find(w => w.id === workId) || WORKS[0];
+  let state = makeState(workId);
 
   workTitle.textContent = work.title;
   workDesc.textContent  = "未観測：内部状態だけが進む";
