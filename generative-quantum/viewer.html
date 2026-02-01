@@ -99,6 +99,11 @@
     { id:"flowfield", title:"Flow Field", desc:"場に沿って筆致が流れる", renderer: renderFlowField },
     { id:"rings",     title:"Rings",     desc:"干渉縞のような円環",     renderer: renderRings },
     { id:"shards",    title:"Shards",    desc:"割れた光片の抽象構成",   renderer: renderShards },
+
+    // --- Abstract painting series ---
+    { id:"abstract_constructive", title:"Abstract / Constructive", desc:"構成的抽象：色面・線・円弧・格子", renderer: renderAbstractConstructive },
+    { id:"abstract_gestural",     title:"Abstract / Gestural",     desc:"身振りの抽象：筆致・擦れ・飛沫",     renderer: renderAbstractGestural },
+    { id:"abstract_hybrid",       title:"Abstract / Hybrid",       desc:"混成：構成 + 身振りの重なり",         renderer: renderAbstractHybrid },
   ];
 
   // URLで作品を指定：viewer.html?work=rings
@@ -146,7 +151,6 @@
       work.renderer(ctx, innerWidth, innerHeight, observedState, { isThumb:false });
     }catch(e){
       console.error("[main render failed]", work.id, e);
-      // フォールバック：真っ黒にしない
       ctx.fillStyle = "rgb(10,12,16)";
       ctx.fillRect(0,0,innerWidth,innerHeight);
       ctx.strokeStyle = "rgba(255,255,255,.14)";
@@ -159,7 +163,7 @@
   // リサイズは世界の再計算になるので無視（不可逆性）
   window.addEventListener("resize", () => { /* intentionally empty */ });
 
-  // 初期はキャンバスを背景色で埋めておく（“何もない”を気持ち良く）
+  // 初期はキャンバスを背景色で埋めておく
   paintIdle();
 
   function paintIdle(){
@@ -192,7 +196,8 @@
         c: 0.6 + Math.random()*1.2,
         d: 0.6 + Math.random()*1.2
       },
-      palette: makePalette(seed)
+      palette: makePalette(seed),
+      abs: makeAbstractParams(seed)
     };
   }
 
@@ -214,8 +219,21 @@
     return { bg:"rgb(10,12,16)", ink: shuffle(inks, seed).slice(0,3) };
   }
 
+  function makeAbstractParams(seed){
+    const rnd = mulberry32(seed);
+
+    const palettes = [
+      { name:"paper-ink", bg:"#f2ead7", inks:["#0b0d10","#e53935","#1e5eff","#ffb300","#2e7d32","#ffffff"] },
+      { name:"cold-fire", bg:"#071018", inks:["#b2ebf2","#4dd0e1","#1565c0","#ff1744","#ffd180","#ffffff","#0b0d10"] },
+      { name:"dusty",     bg:"#efe7d8", inks:["#11141a","#263238","#c62828","#1565c0","#2e7d32","#f9f5ef"] },
+    ];
+    const pal = palettes[Math.floor(rnd()*palettes.length)];
+
+    return { pal, paper: 0.10 + rnd()*0.10, vignette: 0.35 + rnd()*0.25 };
+  }
+
   // =========================================================
-  // Renderers
+  // Renderers (existing)
   // =========================================================
   function renderFlowField(ctx, W, H, s, opt){
     ctx.fillStyle = s.palette.bg;
@@ -353,6 +371,295 @@
   }
 
   // =========================================================
+  // Renderers (abstract painting)
+  // =========================================================
+  function renderAbstractConstructive(ctx, W, H, s, opt){
+    const rng = sfc32Seeded(s.seed ^ 0xA31D1B1F);
+    const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
+
+    fillBg(ctx, W, H, pal.bg);
+    paperNoise(ctx, W, H, rng, 0.12);
+
+    constructiveLayer(ctx, W, H, rng, pal, opt);
+    smearLayer(ctx, W, H, rng, 120);
+
+    paperNoise(ctx, W, H, rng, 0.07);
+    vignette(ctx, W, H, s.abs?.vignette ?? 0.40);
+  }
+
+  function renderAbstractGestural(ctx, W, H, s, opt){
+    const rng = sfc32Seeded(s.seed ^ 0x19C0FFEE);
+    const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
+
+    fillBg(ctx, W, H, pal.bg);
+    paperNoise(ctx, W, H, rng, 0.12);
+
+    gesturalLayer(ctx, W, H, rng, pal, opt);
+    smearLayer(ctx, W, H, rng, 170);
+
+    paperNoise(ctx, W, H, rng, 0.07);
+    vignette(ctx, W, H, s.abs?.vignette ?? 0.42);
+  }
+
+  function renderAbstractHybrid(ctx, W, H, s, opt){
+    const rng = sfc32Seeded(s.seed ^ 0x55AA0F0F);
+    const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
+
+    fillBg(ctx, W, H, pal.bg);
+    paperNoise(ctx, W, H, rng, 0.12);
+
+    constructiveLayer(ctx, W, H, rng, pal, opt);
+    gesturalLayer(ctx, W, H, rng, pal, opt);
+    smearLayer(ctx, W, H, rng, 150);
+
+    paperNoise(ctx, W, H, rng, 0.07);
+    vignette(ctx, W, H, s.abs?.vignette ?? 0.45);
+  }
+
+  function constructiveLayer(ctx, W, H, rng, pal, opt){
+    ctx.save();
+
+    const blocks = 7;
+    for (let i=0;i<blocks;i++){
+      const x = rng()*W*0.95, y = rng()*H*0.95;
+      const w = lerp(W*0.12, W*0.60, rng());
+      const h = lerp(H*0.10, H*0.48, rng());
+      const rot = (rng()-0.5)*0.7;
+
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(rot);
+      ctx.globalAlpha = lerp(0.10, 0.28, rng());
+      ctx.fillStyle = pick(rng, pal.inks);
+      ctx.fillRect(-w/2, -h/2, w, h);
+      ctx.restore();
+    }
+
+    const grids = 4;
+    for (let g=0; g<grids; g++){
+      const x = rng()*W, y = rng()*H;
+      const w = lerp(160, 520, rng());
+      const h = lerp(100, 340, rng());
+      const rot = (rng()-0.5)*0.9;
+      const cell = lerp(10, 26, rng());
+
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(rot);
+      ctx.globalAlpha = lerp(0.10, 0.24, rng());
+      ctx.strokeStyle = "rgba(0,0,0,0.55)";
+      ctx.lineWidth = 1;
+
+      for (let yy=-h/2; yy<=h/2; yy+=cell){
+        ctx.beginPath(); ctx.moveTo(-w/2, yy); ctx.lineTo(w/2, yy); ctx.stroke();
+      }
+      for (let xx=-w/2; xx<=w/2; xx+=cell){
+        ctx.beginPath(); ctx.moveTo(xx, -h/2); ctx.lineTo(xx, h/2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    const shapes = 18;
+    for (let i=0;i<shapes;i++){
+      const x=rng()*W, y=rng()*H;
+      const r = Math.max(6, Math.abs(rnorm(rng)) * lerp(14, 140, rng()));
+      const kind = (rng()*3)|0;
+      const ink = pick(rng, pal.inks);
+
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate((rng()-0.5)*1.4);
+
+      if (kind === 0){
+        ctx.globalAlpha = lerp(0.10, 0.30, rng());
+        ctx.fillStyle = ink;
+        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+      } else if (kind === 1){
+        ctx.globalAlpha = lerp(0.16, 0.46, rng());
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = lerp(1.2, 5.0, rng());
+        const a0 = rng()*Math.PI*2;
+        const a1 = a0 + lerp(Math.PI*0.35, Math.PI*1.6, rng());
+        ctx.beginPath(); ctx.arc(0,0,r,a0,a1); ctx.stroke();
+      } else {
+        ctx.globalAlpha = lerp(0.10, 0.26, rng());
+        ctx.fillStyle = ink;
+        ctx.beginPath();
+        ctx.moveTo(-r*0.6,  r*0.45);
+        ctx.lineTo( r*0.7,  0);
+        ctx.lineTo(-r*0.2, -r*0.55);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    ctx.globalCompositeOperation = "multiply";
+    ctx.lineCap = "round";
+    const lines = 32;
+    for (let i=0;i<lines;i++){
+      const x0=rng()*W, y0=rng()*H;
+      const x1=rng()*W, y1=rng()*H;
+      const cx = lerp(x0,x1,0.5) + rnorm(rng)*110;
+      const cy = lerp(y0,y1,0.5) + rnorm(rng)*110;
+
+      ctx.strokeStyle = "rgba(0,0,0,0.85)";
+      ctx.globalAlpha = lerp(0.10, 0.38, rng());
+      ctx.lineWidth = lerp(1.0, 6.0, rng());
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.quadraticCurveTo(cx,cy,x1,y1);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
+  function gesturalLayer(ctx, W, H, rng, pal, opt){
+    ctx.save();
+
+    ctx.globalCompositeOperation = "screen";
+    const clouds = 10;
+    for (let i=0;i<clouds;i++){
+      const x=rng()*W, y=rng()*H;
+      const rx=lerp(W*0.10, W*0.42, rng());
+      const ry=lerp(H*0.10, H*0.38, rng());
+      const rot=(rng()-0.5)*1.0;
+
+      const grad = ctx.createRadialGradient(x,y,0,x,y,Math.max(rx,ry));
+      const c = pick(rng, pal.inks);
+      grad.addColorStop(0, c);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+
+      ctx.globalAlpha = lerp(0.06, 0.18, rng());
+      ctx.save();
+      ctx.translate(x,y); ctx.rotate(rot); ctx.translate(-x,-y);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.globalCompositeOperation = "overlay";
+    ctx.lineCap = "round";
+    const strokes = 26;
+    for (let i=0;i<strokes;i++){
+      ctx.strokeStyle = pick(rng, pal.inks);
+      ctx.lineWidth = lerp(6, 46, rng());
+      ctx.globalAlpha = lerp(0.03, 0.12, rng());
+
+      const x0=rng()*W, y0=rng()*H;
+      const x1=rng()*W, y1=rng()*H;
+      const cx = (x0+x1)/2 + rnorm(rng)*220;
+      const cy = (y0+y1)/2 + rnorm(rng)*190;
+
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.quadraticCurveTo(cx,cy,x1,y1);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = "multiply";
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.globalAlpha = 0.10;
+
+    const scratches = 360;
+    for (let i=0;i<scratches;i++){
+      const x=rng()*W, y=rng()*H;
+      const ang=rng()*Math.PI*2;
+      const len=Math.abs(rnorm(rng))*lerp(10, 160, rng());
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+      ctx.lineTo(x+Math.cos(ang)*len, y+Math.sin(ang)*len);
+      ctx.stroke();
+    }
+
+    const accent = pick(rng, ["#ff1744","#00e5ff","#ffd180","#ffffff"]);
+    splatter(ctx, W, H, rng, accent, false);
+
+    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
+  // -------------------------
+  // Abstract helpers
+  // -------------------------
+  function fillBg(ctx, W, H, color){
+    ctx.fillStyle = color;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  function paperNoise(ctx, W, H, rng, strength){
+    ctx.save();
+    ctx.globalAlpha = strength;
+    const count = Math.floor((W*H) / 4200);
+    for (let i=0;i<count;i++){
+      const x = rng()*W, y=rng()*H;
+      const a = rng()*0.35;
+      ctx.fillStyle = `rgba(0,0,0,${a})`;
+      ctx.fillRect(x,y,1,1);
+    }
+    ctx.restore();
+  }
+
+  function smearLayer(ctx, W, H, rng, n){
+    ctx.save();
+    ctx.globalCompositeOperation = "overlay";
+    ctx.lineCap = "round";
+    for (let i=0;i<n;i++){
+      const x0=rng()*W, y0=rng()*H;
+      const ang=rng()*Math.PI*2;
+      const len=lerp(40, 520, rng());
+      const w=lerp(1.0, 5.0, rng());
+      ctx.lineWidth = w;
+      ctx.globalAlpha = lerp(0.02, 0.10, rng());
+      ctx.strokeStyle = `rgba(255,255,255,${lerp(0.2,0.9,rng())})`;
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.lineTo(x0 + Math.cos(ang)*len, y0 + Math.sin(ang)*len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function splatter(ctx, W, H, rng, col, isThumb){
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const bursts = isThumb ? 3 : Math.floor(lerp(3, 8, rng()));
+    for (let b=0;b<bursts;b++){
+      const cx=rng()*W, cy=rng()*H;
+      const dots = isThumb ? 260 : Math.floor(lerp(220, 560, rng()));
+      for (let i=0;i<dots;i++){
+        const rr = Math.abs(rnorm(rng)) * lerp(12, isThumb ? 100 : 170, rng());
+        const ang = rng()*Math.PI*2;
+        const x = cx + Math.cos(ang)*rr;
+        const y = cy + Math.sin(ang)*rr;
+        const s = lerp(0.8, 2.8, rng()) * (0.5 + rng());
+        ctx.globalAlpha = lerp(0.03, 0.12, rng());
+        ctx.fillStyle = col;
+        ctx.fillRect(x,y,s,s);
+      }
+    }
+    ctx.restore();
+  }
+
+  function vignette(ctx, W, H, strength){
+    ctx.save();
+    const g = ctx.createRadialGradient(W*0.5,H*0.5, Math.min(W,H)*0.25, W*0.5,H*0.5, Math.max(W,H)*0.80);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(0,0,0,${strength})`);
+    ctx.fillStyle = g;
+    ctx.globalAlpha = 0.65;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // =========================================================
   // Utils
   // =========================================================
   function makeParticles(W,H,n,seed){
@@ -379,6 +686,27 @@
     };
   }
 
+  function sfc32Seeded(seed){
+    const a = (seed ^ 0x9E3779B9) >>> 0;
+    const b = (seed ^ 0x243F6A88) >>> 0;
+    const c = (seed ^ 0xB7E15162) >>> 0;
+    const d = (seed ^ 0xDEADBEEF) >>> 0;
+    return sfc32(a,b,c,d);
+  }
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
+  }
+
   function shuffle(arr, seed){
     const rnd = mulberry32(seed);
     const a = arr.slice();
@@ -396,6 +724,13 @@
       .replaceAll(">","&gt;")
       .replaceAll('"',"&quot;")
       .replaceAll("'","&#039;");
+  }
+
+  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function rnorm(rng){
+    const u = Math.max(1e-9, rng()), v = rng();
+    return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
   }
 })();
 </script>
