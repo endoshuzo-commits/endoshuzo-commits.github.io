@@ -107,24 +107,25 @@
   ];
 
   // URLで作品を指定：viewer.html?work=rings
-  const params = new URLSearchParams(location.search);
+ // URLで作品を指定：viewer.html?work=rings
+const params = new URLSearchParams(location.search);
 const workId = (params.get("work") || "flowfield").trim();
 const work = WORKS.find(w => w.id === workId) || WORKS[0];
-  let state = makeState(workId);
 
-  workTitle.textContent = work.title;
-  workDesc.textContent  = "未観測：内部状態だけが進む";
+workTitle.textContent = work.title;
+workDesc.textContent  = "未観測：内部状態だけが進む";
 
-  // =========================================================
-  // Unobserved drift
-  // =========================================================
-  let state = makeState();
-  let observed = false;
-  let unobservedTimer = setInterval(() => {
-    if (observed) return;
-    state.t += 0.016;
-    drift(state);
-  }, 16);
+// =========================================================
+// Unobserved drift
+// =========================================================
+let state = makeState(workId);   // ★ここだけでOK（重複宣言しない）
+let observed = false;
+
+let unobservedTimer = setInterval(() => {
+  if (observed) return;
+  state.t += 0.016;
+  drift(state);
+}, 16);
 
   // 観測（確定）
   document.getElementById("generate").addEventListener("click", () => {
