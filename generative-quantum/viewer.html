@@ -36,8 +36,25 @@
     header .desc{font-size:12px;color:var(--muted);}
     header .right{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);}
 
-    .stage{position:relative;min-height:0;}
-    canvas{display:block;width:100%;height:100%;}
+    /* ★ここ：stage内で作品を中央に“額装”する */
+    .stage{
+      position:relative;
+      min-height:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+    canvas{
+      display:block;
+      /* ★JSが px 指定する（中央に作品サイズ） */
+      width: 100px;
+      height: 100px;
+      background: #0a0c10;
+      border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+
     .overlay{
       position:absolute;left:18px;bottom:14px;
       color:rgba(255,255,255,.60);
@@ -138,12 +155,50 @@
     };
   }
 
-  function resizeToStage(){
-    const { w, h } = stageRect();
+  // ★ここが本題：PCは16:10、スマホは10:16 で stage 内に収める
+  function desiredAspect(){
+    // スマホ判定：幅が小さい or タッチ主体
+    const isMobile =
+      matchMedia("(max-width: 720px)").matches ||
+      matchMedia("(pointer: coarse)").matches;
+
+    // PC: 16/10  /  スマホ: 10/16（縦横逆）
+    return isMobile ? (10/16) : (16/10);
+  }
+
+  function fitSizeToStage(sw, sh, aspect){
+    // stage内に aspect の矩形を “contain” で最大化
+    const stageAspect = sw / sh;
+    let w, h;
+    if (stageAspect >= aspect){
+      // 高さが支配
+      h = sh;
+      w = Math.floor(h * aspect);
+    } else {
+      // 幅が支配
+      w = sw;
+      h = Math.floor(w / aspect);
+    }
+    w = Math.max(1, w);
+    h = Math.max(1, h);
+    return { w, h };
+  }
+
+  function resizeToArtwork(){
+    const { w: sw, h: sh } = stageRect();
+    const aspect = desiredAspect();
+    const { w, h } = fitSizeToStage(sw, sh, aspect);
+
+    // CSS表示サイズを固定（中央配置は stage の flex がやる）
+    canvas.style.width  = w + "px";
+    canvas.style.height = h + "px";
+
+    // 描画バッファ（Retina）
     const dpr = devicePixelRatio || 1;
     canvas.width  = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
+
     return { w, h, dpr };
   }
 
@@ -158,7 +213,7 @@
     `;
     workDesc.textContent = "観測：この瞬間の世界が確定した";
 
-    const { w, h, dpr } = resizeToStage();
+    const { w, h, dpr } = resizeToArtwork();
 
     const observedState = cloneState(state);
     observedState.viewer = { w, h, dpr };
@@ -188,7 +243,7 @@
   paintIdle();
 
   function paintIdle(){
-    const { w, h } = resizeToStage();
+    const { w, h } = resizeToArtwork();
     ctx.fillStyle = "rgb(10,12,16)";
     ctx.fillRect(0,0,w,h);
     ctx.globalAlpha = 0.05;
