@@ -100,32 +100,31 @@
     { id:"rings",     title:"Rings",     desc:"干渉縞のような円環",     renderer: renderRings },
     { id:"shards",    title:"Shards",    desc:"割れた光片の抽象構成",   renderer: renderShards },
 
-    // --- Abstract painting series ---
+    // --- Abstract painting series (signature separated) ---
     { id:"abstract_constructive", title:"Abstract / Constructive", desc:"構成的抽象：色面・線・円弧・格子", renderer: renderAbstractConstructive },
-    { id:"abstract_gestural",     title:"Abstract / Gestural",     desc:"身振りの抽象：筆致・擦れ・飛沫",     renderer: renderAbstractGestural },
-    { id:"abstract_hybrid",       title:"Abstract / Hybrid",       desc:"混成：構成 + 身振りの重なり",         renderer: renderAbstractHybrid },
+    { id:"abstract_gestural",     title:"Abstract / Gestural",     desc:"身振りの抽象：筆致・滲み・飛沫",     renderer: renderAbstractGestural },
+    { id:"abstract_hybrid",       title:"Abstract / Hybrid",       desc:"混成：断層（裂け目）で衝突する二層", renderer: renderAbstractHybrid },
   ];
 
   // URLで作品を指定：viewer.html?work=rings
- // URLで作品を指定：viewer.html?work=rings
-const params = new URLSearchParams(location.search);
-const workId = (params.get("work") || "flowfield").trim();
-const work = WORKS.find(w => w.id === workId) || WORKS[0];
+  const params = new URLSearchParams(location.search);
+  const workId = (params.get("work") || "flowfield").trim();
+  const work = WORKS.find(w => w.id === workId) || WORKS[0];
 
-workTitle.textContent = work.title;
-workDesc.textContent  = "未観測：内部状態だけが進む";
+  workTitle.textContent = work.title;
+  workDesc.textContent  = "未観測：内部状態だけが進む";
 
-// =========================================================
-// Unobserved drift
-// =========================================================
-let state = makeState(workId);   // ★ここだけでOK（重複宣言しない）
-let observed = false;
+  // =========================================================
+  // Unobserved drift
+  // =========================================================
+  let state = makeState(workId);   // ★ここだけ（重複宣言しない）
+  let observed = false;
 
-let unobservedTimer = setInterval(() => {
-  if (observed) return;
-  state.t += 0.016;
-  drift(state);
-}, 16);
+  let unobservedTimer = setInterval(() => {
+    if (observed) return;
+    state.t += 0.016;
+    drift(state);
+  }, 16);
 
   // 観測（確定）
   document.getElementById("generate").addEventListener("click", () => {
@@ -146,11 +145,12 @@ let unobservedTimer = setInterval(() => {
 
     resize();
 
-    const observedState = structuredClone(state);
-    observedState.viewer = { w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1 };
+    const dpr = devicePixelRatio || 1;
+    const observedState = cloneState(state);
+    observedState.viewer = { w: innerWidth, h: innerHeight, dpr };
 
     try{
-      work.renderer(ctx, innerWidth, innerHeight, observedState, { isThumb:false });
+      work.renderer(ctx, innerWidth, innerHeight, observedState, { isThumb:false, dpr });
     }catch(e){
       console.error("[main render failed]", work.id, e);
       ctx.fillStyle = "rgb(10,12,16)";
@@ -160,6 +160,11 @@ let unobservedTimer = setInterval(() => {
       ctx.strokeRect(24, 24, innerWidth-48, innerHeight-48);
       overlay.innerHTML += `<br><span style="color:rgba(255,180,180,.8)">生成に失敗（Console参照）</span>`;
     }
+  }
+
+  function cloneState(s){
+    if (typeof structuredClone === "function") return structuredClone(s);
+    return JSON.parse(JSON.stringify(s));
   }
 
   // リサイズは世界の再計算になるので無視（不可逆性）
@@ -188,28 +193,28 @@ let unobservedTimer = setInterval(() => {
   // State / Palette
   // =========================================================
   function makeState(workId){
-  // 「作品ごとに別宇宙」になる seed
-  const base = hash32("viewer|" + workId) >>> 0;
+    // 「作品ごとに別宇宙」になる seed
+    const base = hash32("viewer|" + workId) >>> 0;
 
-  // リロード毎に違う宇宙（=別世界）にしたいなら salt を混ぜる
-  const salt = (Math.random()*1e9) >>> 0;
-  const seed = (base ^ salt) >>> 0;
+    // リロード毎に違う宇宙（=別世界）
+    const salt = (Math.random()*1e9) >>> 0;
+    const seed = (base ^ salt) >>> 0;
 
-  const r = mulberry32(seed);
+    const r = mulberry32(seed);
 
-  return {
-    seed,
-    t: r()*1000,
-    field: {
-      a: 0.6 + r()*1.2,
-      b: 0.6 + r()*1.2,
-      c: 0.6 + r()*1.2,
-      d: 0.6 + r()*1.2
-    },
-    palette: makePalette(seed),
-    abs: makeAbstractParams(seed)
-  };
-}
+    return {
+      seed,
+      t: r()*1000,
+      field: {
+        a: 0.6 + r()*1.2,
+        b: 0.6 + r()*1.2,
+        c: 0.6 + r()*1.2,
+        d: 0.6 + r()*1.2
+      },
+      palette: makePalette(seed),
+      abs: makeAbstractParams(seed)
+    };
+  }
 
   function drift(s){
     const r = mulberry32(s.seed + Math.floor(s.t * 60));
@@ -318,7 +323,7 @@ let unobservedTimer = setInterval(() => {
     for (let i=0; i<rings; i++){
       const baseR  = i*step;
       const jitter = (rnd()-0.5) * step * 0.6;
-      const r = Math.max(0.15, baseR + jitter); // ★必ず正
+      const r = Math.max(0.15, baseR + jitter);
 
       const t = i / rings;
       const centerBoost = 1.0 - 0.65*t;
@@ -381,8 +386,10 @@ let unobservedTimer = setInterval(() => {
   }
 
   // =========================================================
-  // Renderers (abstract painting)
+  // Renderers (abstract painting) — signature separated
   // =========================================================
+
+  // Constructive: 硬い / 構造だけ（smearなし）
   function renderAbstractConstructive(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0xA31D1B1F);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
@@ -391,12 +398,12 @@ let unobservedTimer = setInterval(() => {
     paperNoise(ctx, W, H, rng, 0.12);
 
     constructiveLayer(ctx, W, H, rng, pal, opt);
-    smearLayer(ctx, W, H, rng, 120);
 
     paperNoise(ctx, W, H, rng, 0.07);
-    vignette(ctx, W, H, s.abs?.vignette ?? 0.40);
+    vignette(ctx, W, H, s.abs?.vignette ?? 0.35);
   }
 
+  // Gestural: 滲み署名（inkBleed）
   function renderAbstractGestural(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0x19C0FFEE);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
@@ -405,21 +412,42 @@ let unobservedTimer = setInterval(() => {
     paperNoise(ctx, W, H, rng, 0.12);
 
     gesturalLayer(ctx, W, H, rng, pal, opt);
+    inkBleed(ctx, W, H, rng);
     smearLayer(ctx, W, H, rng, 170);
 
     paperNoise(ctx, W, H, rng, 0.07);
     vignette(ctx, W, H, s.abs?.vignette ?? 0.42);
   }
 
+  // Hybrid: 裂け目署名（riftMask）で二層衝突
   function renderAbstractHybrid(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0x55AA0F0F);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
+    const dpr = opt?.dpr || 1;
 
     fillBg(ctx, W, H, pal.bg);
     paperNoise(ctx, W, H, rng, 0.12);
 
+    // layer A
     constructiveLayer(ctx, W, H, rng, pal, opt);
-    gesturalLayer(ctx, W, H, rng, pal, opt);
+
+    // layer B (offscreen) + riftMask
+    const tmp = document.createElement("canvas");
+    tmp.width  = Math.floor(W * dpr);
+    tmp.height = Math.floor(H * dpr);
+    const tctx = tmp.getContext("2d", { alpha:true });
+    tctx.setTransform(dpr,0,0,dpr,0,0);
+
+    tctx.clearRect(0,0,W,H);
+    gesturalLayer(tctx, W, H, rng, pal, opt);
+    riftMask(tctx, W, H, rng);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(tmp, 0, 0, W, H);
+    ctx.restore();
+
     smearLayer(ctx, W, H, rng, 150);
 
     paperNoise(ctx, W, H, rng, 0.07);
@@ -596,6 +624,56 @@ let unobservedTimer = setInterval(() => {
     ctx.globalAlpha = 1;
   }
 
+  // =========================================================
+  // Signature helpers (NEW)
+  // =========================================================
+  function inkBleed(ctx, W, H, rng){
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = 0.10;
+
+    const n = 52;
+    for(let i=0;i<n;i++){
+      const x=rng()*W, y=rng()*H;
+      const rx=lerp(50, 260, rng());
+      const ry=lerp(40, 210, rng());
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(x,y,rx,ry, rng()*Math.PI*2, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function riftMask(ctx, W, H, rng){
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.fillStyle = "rgba(255,255,255,1)";
+
+    const bandY = H*(0.35 + rng()*0.30);
+    const bandH = lerp(H*0.18, H*0.32, rng());
+
+    ctx.beginPath();
+    ctx.moveTo(0, bandY - bandH/2);
+    const seg = 12;
+
+    for(let i=1;i<=seg;i++){
+      const x = (W/seg)*i;
+      const y = bandY - bandH/2 + rnorm(rng)*18;
+      ctx.lineTo(x,y);
+    }
+    for(let i=seg;i>=0;i--){
+      const x = (W/seg)*i;
+      const y = bandY + bandH/2 + rnorm(rng)*18;
+      ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   // -------------------------
   // Abstract helpers
   // -------------------------
@@ -660,7 +738,10 @@ let unobservedTimer = setInterval(() => {
 
   function vignette(ctx, W, H, strength){
     ctx.save();
-    const g = ctx.createRadialGradient(W*0.5,H*0.5, Math.min(W,H)*0.25, W*0.5,H*0.5, Math.max(W,H)*0.80);
+    const g = ctx.createRadialGradient(
+      W*0.5,H*0.5, Math.min(W,H)*0.25,
+      W*0.5,H*0.5, Math.max(W,H)*0.80
+    );
     g.addColorStop(0, "rgba(0,0,0,0)");
     g.addColorStop(1, `rgba(0,0,0,${strength})`);
     ctx.fillStyle = g;
@@ -716,15 +797,17 @@ let unobservedTimer = setInterval(() => {
       return (t >>> 0) / 4294967296;
     };
   }
-function hash32(str){
-  // FNV-1a 32bit
-  let h = 0x811c9dc5;
-  for (let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
+
+  function hash32(str){
+    // FNV-1a 32bit
+    let h = 0x811c9dc5;
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
   }
-  return h >>> 0;
-}
+
   function shuffle(arr, seed){
     const rnd = mulberry32(seed);
     const a = arr.slice();
