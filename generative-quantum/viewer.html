@@ -108,8 +108,8 @@
 
   // URLで作品を指定：viewer.html?work=rings
   const params = new URLSearchParams(location.search);
-  const workId = params.get("work") || "flowfield";
-  const work = WORKS.find(w => w.id === workId) || WORKS[0];
+const workId = (params.get("work") || "flowfield").trim();
+const work = WORKS.find(w => w.id === workId) || WORKS[0];
   let state = makeState(workId);
 
   workTitle.textContent = work.title;
@@ -186,21 +186,29 @@
   // =========================================================
   // State / Palette
   // =========================================================
-  function makeState(){
-    const seed = (Math.random()*1e9) >>> 0;
-    return {
-      seed,
-      t: Math.random()*1000,
-      field: {
-        a: 0.6 + Math.random()*1.2,
-        b: 0.6 + Math.random()*1.2,
-        c: 0.6 + Math.random()*1.2,
-        d: 0.6 + Math.random()*1.2
-      },
-      palette: makePalette(seed),
-      abs: makeAbstractParams(seed)
-    };
-  }
+  function makeState(workId){
+  // 「作品ごとに別宇宙」になる seed
+  const base = hash32("viewer|" + workId) >>> 0;
+
+  // リロード毎に違う宇宙（=別世界）にしたいなら salt を混ぜる
+  const salt = (Math.random()*1e9) >>> 0;
+  const seed = (base ^ salt) >>> 0;
+
+  const r = mulberry32(seed);
+
+  return {
+    seed,
+    t: r()*1000,
+    field: {
+      a: 0.6 + r()*1.2,
+      b: 0.6 + r()*1.2,
+      c: 0.6 + r()*1.2,
+      d: 0.6 + r()*1.2
+    },
+    palette: makePalette(seed),
+    abs: makeAbstractParams(seed)
+  };
+}
 
   function drift(s){
     const r = mulberry32(s.seed + Math.floor(s.t * 60));
