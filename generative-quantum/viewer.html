@@ -71,7 +71,7 @@
       </div>
     </header>
 
-    <section class="stage">
+    <section class="stage" id="stage">
       <canvas id="c"></canvas>
       <div class="overlay" id="overlay">
         <span class="badge">unobserved</span>
@@ -83,8 +83,9 @@
 
 <script>
 (() => {
+  const stage  = document.getElementById("stage");
   const canvas = document.getElementById("c");
-  const ctx = canvas.getContext("2d", { alpha:false });
+  const ctx    = canvas.getContext("2d", { alpha:false });
 
   const workTitle = document.getElementById("workTitle");
   const workDesc  = document.getElementById("workDesc");
@@ -100,13 +101,11 @@
     { id:"rings",     title:"Rings",     desc:"干渉縞のような円環",     renderer: renderRings },
     { id:"shards",    title:"Shards",    desc:"割れた光片の抽象構成",   renderer: renderShards },
 
-    // --- Abstract painting series (signature separated) ---
     { id:"abstract_constructive", title:"Abstract / Constructive", desc:"構成的抽象：色面・線・円弧・格子", renderer: renderAbstractConstructive },
     { id:"abstract_gestural",     title:"Abstract / Gestural",     desc:"身振りの抽象：筆致・滲み・飛沫",     renderer: renderAbstractGestural },
     { id:"abstract_hybrid",       title:"Abstract / Hybrid",       desc:"混成：断層（裂け目）で衝突する二層", renderer: renderAbstractHybrid },
   ];
 
-  // URLで作品を指定：viewer.html?work=rings
   const params = new URLSearchParams(location.search);
   const workId = (params.get("work") || "flowfield").trim();
   const work = WORKS.find(w => w.id === workId) || WORKS[0];
@@ -120,17 +119,33 @@
   let state = makeState(workId);   // ★ここだけ（重複宣言しない）
   let observed = false;
 
-  let unobservedTimer = setInterval(() => {
+  const unobservedTimer = setInterval(() => {
     if (observed) return;
     state.t += 0.016;
     drift(state);
   }, 16);
 
-  // 観測（確定）
   document.getElementById("generate").addEventListener("click", () => {
     if (observed) return;
     observeNow();
   });
+
+  function stageRect(){
+    const r = stage.getBoundingClientRect();
+    return {
+      w: Math.max(1, Math.floor(r.width)),
+      h: Math.max(1, Math.floor(r.height)),
+    };
+  }
+
+  function resizeToStage(){
+    const { w, h } = stageRect();
+    const dpr = devicePixelRatio || 1;
+    canvas.width  = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return { w, h, dpr };
+  }
 
   function observeNow(){
     observed = true;
@@ -143,21 +158,20 @@
     `;
     workDesc.textContent = "観測：この瞬間の世界が確定した";
 
-    resize();
+    const { w, h, dpr } = resizeToStage();
 
-    const dpr = devicePixelRatio || 1;
     const observedState = cloneState(state);
-    observedState.viewer = { w: innerWidth, h: innerHeight, dpr };
+    observedState.viewer = { w, h, dpr };
 
     try{
-      work.renderer(ctx, innerWidth, innerHeight, observedState, { isThumb:false, dpr });
+      work.renderer(ctx, w, h, observedState, { isThumb:false, dpr });
     }catch(e){
       console.error("[main render failed]", work.id, e);
       ctx.fillStyle = "rgb(10,12,16)";
-      ctx.fillRect(0,0,innerWidth,innerHeight);
+      ctx.fillRect(0,0,w,h);
       ctx.strokeStyle = "rgba(255,255,255,.14)";
       ctx.lineWidth = 2;
-      ctx.strokeRect(24, 24, innerWidth-48, innerHeight-48);
+      ctx.strokeRect(24, 24, w-48, h-48);
       overlay.innerHTML += `<br><span style="color:rgba(255,180,180,.8)">生成に失敗（Console参照）</span>`;
     }
   }
@@ -174,29 +188,19 @@
   paintIdle();
 
   function paintIdle(){
-    resize();
+    const { w, h } = resizeToStage();
     ctx.fillStyle = "rgb(10,12,16)";
-    ctx.fillRect(0,0,innerWidth,innerHeight);
+    ctx.fillRect(0,0,w,h);
     ctx.globalAlpha = 0.05;
-    grain(ctx, innerWidth, innerHeight, state.seed);
+    grain(ctx, w, h, state.seed);
     ctx.globalAlpha = 1;
-  }
-
-  function resize(){
-    const dpr = devicePixelRatio || 1;
-    canvas.width  = Math.floor(innerWidth * dpr);
-    canvas.height = Math.floor(innerHeight * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
   }
 
   // =========================================================
   // State / Palette
   // =========================================================
   function makeState(workId){
-    // 「作品ごとに別宇宙」になる seed
     const base = hash32("viewer|" + workId) >>> 0;
-
-    // リロード毎に違う宇宙（=別世界）
     const salt = (Math.random()*1e9) >>> 0;
     const seed = (base ^ salt) >>> 0;
 
@@ -234,32 +238,32 @@
     return { bg:"rgb(10,12,16)", ink: shuffle(inks, seed).slice(0,3) };
   }
 
+  // ★ 明るい2作 / 暗い1作 固定
   function makeAbstractParams(seed, workId){
-  const rnd = mulberry32(seed);
+    const rnd = mulberry32(seed);
 
-  // 背景を作品タイプで固定
-  const PAL_LIGHT = {
-    name:"dusty",
-    bg:"#efe7d8",
-    inks:["#11141a","#263238","#c62828","#1565c0","#2e7d32","#f9f5ef"]
-  };
+    const PAL_LIGHT = {
+      name:"dusty",
+      bg:"#efe7d8",
+      inks:["#11141a","#263238","#c62828","#1565c0","#2e7d32","#f9f5ef"]
+    };
 
-  const PAL_DARK = {
-    name:"cold-fire",
-    bg:"#071018",
-    inks:["#b2ebf2","#4dd0e1","#1565c0","#ff1744","#ffd180","#ffffff","#0b0d10"]
-  };
+    const PAL_DARK = {
+      name:"cold-fire",
+      bg:"#071018",
+      inks:["#b2ebf2","#4dd0e1","#1565c0","#ff1744","#ffd180","#ffffff","#0b0d10"]
+    };
 
-  const pal = (workId === "abstract_hybrid") ? PAL_DARK : PAL_LIGHT;
+    const pal = (workId === "abstract_hybrid") ? PAL_DARK : PAL_LIGHT;
 
-  return {
-    pal,
-    paper: 0.10 + rnd()*0.10,
-    vignette: (workId === "abstract_hybrid")
-      ? (0.45 + rnd()*0.20)
-      : (0.28 + rnd()*0.18)
-  };
-}
+    return {
+      pal,
+      paper: 0.10 + rnd()*0.10,
+      vignette: (workId === "abstract_hybrid")
+        ? (0.45 + rnd()*0.20)
+        : (0.28 + rnd()*0.18)
+    };
+  }
 
   // =========================================================
   // Renderers (existing)
@@ -402,8 +406,6 @@
   // =========================================================
   // Renderers (abstract painting) — signature separated
   // =========================================================
-
-  // Constructive: 硬い / 構造だけ（smearなし）
   function renderAbstractConstructive(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0xA31D1B1F);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
@@ -417,7 +419,6 @@
     vignette(ctx, W, H, s.abs?.vignette ?? 0.35);
   }
 
-  // Gestural: 滲み署名（inkBleed）
   function renderAbstractGestural(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0x19C0FFEE);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
@@ -433,7 +434,6 @@
     vignette(ctx, W, H, s.abs?.vignette ?? 0.42);
   }
 
-  // Hybrid: 裂け目署名（riftMask）で二層衝突
   function renderAbstractHybrid(ctx, W, H, s, opt){
     const rng = sfc32Seeded(s.seed ^ 0x55AA0F0F);
     const pal = s.abs?.pal || makeAbstractParams(s.seed).pal;
@@ -442,10 +442,8 @@
     fillBg(ctx, W, H, pal.bg);
     paperNoise(ctx, W, H, rng, 0.12);
 
-    // layer A
     constructiveLayer(ctx, W, H, rng, pal, opt);
 
-    // layer B (offscreen) + riftMask
     const tmp = document.createElement("canvas");
     tmp.width  = Math.floor(W * dpr);
     tmp.height = Math.floor(H * dpr);
@@ -468,6 +466,7 @@
     vignette(ctx, W, H, s.abs?.vignette ?? 0.45);
   }
 
+  // ---------- (以下、あなたの元コードのまま) ----------
   function constructiveLayer(ctx, W, H, rng, pal, opt){
     ctx.save();
 
@@ -638,9 +637,6 @@
     ctx.globalAlpha = 1;
   }
 
-  // =========================================================
-  // Signature helpers (NEW)
-  // =========================================================
   function inkBleed(ctx, W, H, rng){
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
@@ -688,9 +684,6 @@
     ctx.restore();
   }
 
-  // -------------------------
-  // Abstract helpers
-  // -------------------------
   function fillBg(ctx, W, H, color){
     ctx.fillStyle = color;
     ctx.fillRect(0,0,W,H);
@@ -764,9 +757,6 @@
     ctx.restore();
   }
 
-  // =========================================================
-  // Utils
-  // =========================================================
   function makeParticles(W,H,n,seed){
     const rnd = mulberry32(seed);
     const ps = new Array(n);
@@ -813,7 +803,6 @@
   }
 
   function hash32(str){
-    // FNV-1a 32bit
     let h = 0x811c9dc5;
     for (let i=0;i<str.length;i++){
       h ^= str.charCodeAt(i);
