@@ -716,7 +716,15 @@ let unobservedTimer = setInterval(() => {
       return (t >>> 0) / 4294967296;
     };
   }
-
+function hash32(str){
+  // FNV-1a 32bit
+  let h = 0x811c9dc5;
+  for (let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
   function shuffle(arr, seed){
     const rnd = mulberry32(seed);
     const a = arr.slice();
