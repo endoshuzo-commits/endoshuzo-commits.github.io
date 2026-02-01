@@ -212,15 +212,26 @@
   // States / Palette
   // =========================================================
   function makeThumbState(workId){
-    const base = (hash32(workId) ^ ((Math.random()*1e9)>>>0)) >>> 0;
-    return {
-      seed: base,
-      t: Math.random() * 50,
-      field: { a: 1.0, b: 0.9, c: 1.1, d: 0.8 },
-      palette: makePalette(base),
-      abs: makeAbstractParams(base)
-    };
-  }
+    // 「workIdごとの系統」をまず固定
+  const base = hash32("thumb|" + workId) >>> 0;
+
+  // その系統の中でだけランダム（=別作品と混ざらない）
+  const salt = (Math.random()*1e9) >>> 0;
+  const seed = (base ^ salt) >>> 0;
+
+  return {
+    seed,
+    t: Math.random() * 50,
+    field: {
+      a: 0.6 + mulberry32(seed)()*1.2,
+      b: 0.6 + mulberry32(seed+1)()*1.2,
+      c: 0.6 + mulberry32(seed+2)()*1.2,
+      d: 0.6 + mulberry32(seed+3)()*1.2
+    },
+    palette: makePalette(seed),
+    abs: makeAbstractParams(seed)
+  };
+}
 
   function makePalette(seed){
     const inks = [
